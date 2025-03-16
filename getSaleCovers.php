@@ -46,10 +46,10 @@ if (empty($comic_title) || empty($years) || empty($issue_urls_str)) {
 $issue_urls = array_map('trim', explode(',', $issue_urls_str));
 $placeholders = implode(',', array_fill(0, count($issue_urls), '?'));
 
-// Modified SQL: Also retrieve the comic's image as fallback
+// Modified SQL: Retrieve details from comics_for_sale and join with comics to get UPC
 $sql = "
     SELECT s.id AS listing_id, s.Image_Path, s.Issue_Number, s.comic_condition, s.price, s.graded,
-           c.Image_Path AS Comic_Image_Path, c.Tab, c.Variant, c.`Date` AS comic_date, s.Issue_URL AS issue_url
+           c.Image_Path AS Comic_Image_Path, c.Tab, c.Variant, c.`Date` AS comic_date, s.Issue_URL AS issue_url, c.UPC
     FROM comics_for_sale s
     LEFT JOIN comics c ON s.Issue_URL = c.Issue_URL
     WHERE s.Comic_Title = ? AND s.Years = ? AND s.Issue_URL IN ($placeholders)
@@ -111,6 +111,7 @@ while ($row = $result->fetch_assoc()) {
     $priceFormatted = number_format($price_val, 2);
     $graded = htmlspecialchars($row['graded'] ?? '');
     $gradedText = ($graded == "1") ? "Yes" : "No";
+    $upc = htmlspecialchars($row['UPC'] ?? 'N/A'); // ✅ Added UPC field
     
     $output .= '<div class="position-relative m-2 cover-wrapper" style="width: 150px;" 
                  data-comic-title="' . htmlspecialchars($comic_title) . '" 
@@ -122,7 +123,8 @@ while ($row = $result->fetch_assoc()) {
                  data-date="' . $comic_date . '"
                  data-condition="' . $condition . '"
                  data-graded="' . $gradedText . '"
-                 data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '">';
+                 data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '"
+                 data-upc="' . $upc . '">';  // ✅ Added UPC as a data attribute
     
     $output .= '<img src="' . htmlspecialchars($imgPath) . '" alt="Issue ' . htmlspecialchars($issue) . '" class="cover-img popup-trigger" style="width: 150px; height: 225px; cursor: pointer;">';
     
@@ -133,6 +135,7 @@ while ($row = $result->fetch_assoc()) {
     $output .= '<div class="text-center small">Condition: ' . $condition . '</div>';
     $output .= '<div class="text-center small">Graded: ' . $gradedText . '</div>';
     $output .= '<div class="text-center small">Price: $' . $priceFormatted . ' ' . htmlspecialchars($currency) . '</div>';
+    $output .= '<div class="text-center small">UPC: ' . $upc . '</div>'; // ✅ Display UPC
     
     $output .= '</div>';
 }

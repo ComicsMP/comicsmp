@@ -18,7 +18,7 @@ $placeholders = implode(',', array_fill(0, count($issue_urls), '?'));
 // Force a '#' prefix for sorting: if the trimmed Issue_Number does not start with '#',
 // we prepend it. Then extract the numeric portion.
 $sql = "
-    SELECT c.Image_Path, c.Issue_Number, c.Variant, c.Tab, c.`Date` AS comic_date, c.Issue_URL AS issue_url
+    SELECT c.Image_Path, c.Issue_Number, c.Variant, c.Tab, c.`Date` AS comic_date, c.Issue_URL AS issue_url, c.UPC
     FROM Comics c
     WHERE c.Comic_Title = ? AND c.Years = ? AND c.Issue_URL IN ($placeholders)
     ORDER BY 
@@ -69,7 +69,8 @@ while ($row = $result->fetch_assoc()) {
     $variant = htmlspecialchars($row['Variant'] ?? 'N/A');
     $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
     $issue_url = htmlspecialchars($row['issue_url'] ?? '');
-    
+    $upc = htmlspecialchars($row['UPC'] ?? 'N/A'); // ✅ Added UPC field
+
     $output .= '<div class="position-relative m-2 cover-wrapper" style="width: 150px;" 
                  data-comic-title="' . htmlspecialchars($comic_title) . '" 
                  data-years="' . htmlspecialchars($years) . '" 
@@ -77,7 +78,8 @@ while ($row = $result->fetch_assoc()) {
                  data-tab="' . $tab . '" 
                  data-variant="' . $variant . '"
                  data-issue_url="' . $issue_url . '"
-                 data-date="' . $comic_date . '">';
+                 data-date="' . $comic_date . '"
+                 data-upc="' . $upc . '">';  // ✅ Added UPC as a data attribute
     $output .= '<img src="' . htmlspecialchars($imgPath) . '" alt="Issue ' . htmlspecialchars($issue) . '" class="cover-img popup-trigger" style="width: 150px; height: 225px; cursor: pointer;">';
     $output .= '<button class="remove-cover" style="position: absolute; top: 5px; right: 5px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 14px; cursor: pointer; line-height: 18px; text-align: center;" data-comic-title="' . htmlspecialchars($comic_title) . '" data-issue-number="' . htmlspecialchars($issue) . '" data-years="' . htmlspecialchars($years) . '" data-issue_url="' . $issue_url . '">&times;</button>';
     $output .= '<div class="text-center small">Issue: ' . htmlspecialchars($issue) . '</div>';

@@ -726,6 +726,10 @@ if (!$currency) {
               <th>Date:</th>
               <td id="popupDate"></td>
             </tr>
+            <tr id="popupUPCRow">
+            <th>UPC:</th>
+            <td id="popupUPC"></td>
+            </tr>
             <tr id="popupConditionRow">
               <th>Condition:</th>
               <td id="popupCondition"></td>
@@ -1089,47 +1093,35 @@ $('#wantedTable').on("click", ".expand-btn", function (e) {
   
     // Popup Modal for cover images (Wanted/Sale)
     $(document).on("click", ".cover-img", function (e) {
-      if ($(e.target).is("button") || $(e.target).closest("button").length > 0) {
-          return;
-      }
-      var $wrapper = $(this).closest(".cover-wrapper");
-      var containerId = $wrapper.closest(".cover-container").attr("id") || "";
-      
-      if (containerId.indexOf("sale-covers-") === 0) {
-          $("#popupConditionRow").show();
-          $("#popupGradedRow").show();
-          $("#popupPriceRow").show();
-      } else {
-          $("#popupConditionRow").hide();
-          $("#popupGradedRow").hide();
-          $("#popupPriceRow").hide();
-      }
-      
-      var src = $(this).attr("src");
-      var comicTitle = $wrapper.data("comic-title") || "N/A";
-      var years = $wrapper.data("years") || "N/A";
-      var issueNumber = $wrapper.data("issue-number") || "N/A";
-      var tab = $wrapper.data("tab") || "N/A";
-      var variant = $wrapper.data("variant") || "N/A";
-      var date = $wrapper.attr("data-date") || "N/A";
-      var condition = $wrapper.attr("data-condition") || "N/A";
-      var graded = $wrapper.attr("data-graded") || "N/A";
-      var price = $wrapper.attr("data-price") || "N/A";
-      
-      $("#popupMainImage").attr("src", src);
-      $("#popupComicTitle").text(comicTitle);
-      $("#popupYears").text(years);
-      $("#popupIssueNumber").text(issueNumber);
-      $("#popupTab").text(tab);
-      $("#popupVariant").text(variant);
-      $("#popupDate").text(date);
-      $("#popupCondition").text(condition);
-      $("#popupGraded").text(graded);
-      $("#popupPrice").text(price);
-      
-      var modal = new bootstrap.Modal(document.getElementById("profileImageModal"));
-      modal.show();
-    });
+    var $wrapper = $(this).closest(".cover-wrapper");
+
+    var comicTitle = $wrapper.data("comic-title") || "N/A";
+    var years = $wrapper.data("years") || "N/A";
+    var issueNumber = $wrapper.data("issue-number") || "N/A";
+    var tab = $wrapper.data("tab") || "N/A";
+    var variant = $wrapper.data("variant") || "N/A";
+    var date = $wrapper.attr("data-date") || "N/A";
+    var upc = $wrapper.attr("data-upc") || "N/A";  // ✅ Get UPC data
+    var condition = $wrapper.attr("data-condition") || "N/A";
+    var graded = $wrapper.attr("data-graded") || "N/A";
+    var price = $wrapper.attr("data-price") || "N/A";
+
+    $("#popupMainImage").attr("src", $(this).attr("src"));
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text(tab);
+    $("#popupVariant").text(variant);
+    $("#popupDate").text(date);
+    $("#popupUPC").text(upc);  // ✅ Set UPC in modal
+    $("#popupCondition").text(condition);
+    $("#popupGraded").text(graded);
+    $("#popupPrice").text(price);
+
+    var modal = new bootstrap.Modal(document.getElementById("profileImageModal"));
+    modal.show();
+});
+
   
     // Popup Modal for match cover images (Matches Tab)
     $(document).on("click", ".match-cover-img", function(e) {
