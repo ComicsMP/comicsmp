@@ -44,14 +44,19 @@ function getFinalImagePath($rawPath) {
 // --- FETCH WANTED LIST ---
 $sql = "
     SELECT comic_title, years, 
-           GROUP_CONCAT(issue_number SEPARATOR ', ') AS issues,
-           GROUP_CONCAT(Issue_URL SEPARATOR ',') AS issue_urls,
+           GROUP_CONCAT(issue_number ORDER BY 
+               CAST(REGEXP_SUBSTR(issue_number, '^[0-9]+') AS UNSIGNED), 
+               issue_number ASC SEPARATOR ', ') AS issues,
+           GROUP_CONCAT(Issue_URL ORDER BY 
+               CAST(REGEXP_SUBSTR(issue_number, '^[0-9]+') AS UNSIGNED), 
+               issue_number ASC SEPARATOR ',') AS issue_urls,
            COUNT(*) AS count
     FROM wanted_items
     WHERE user_id = ?
     GROUP BY comic_title, years
     ORDER BY comic_title ASC
 ";
+
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -70,14 +75,19 @@ $stmt->close();
 // --- FETCH SALE LISTINGS ---
 $sql2 = "
     SELECT comic_title, years, 
-           GROUP_CONCAT(issue_number SEPARATOR ', ') AS issues,
-           GROUP_CONCAT(Issue_URL SEPARATOR ',') AS issue_urls,
+           GROUP_CONCAT(issue_number ORDER BY 
+               CAST(REGEXP_SUBSTR(issue_number, '^[0-9]+') AS UNSIGNED), 
+               issue_number ASC SEPARATOR ', ') AS issues,
+           GROUP_CONCAT(Issue_URL ORDER BY 
+               CAST(REGEXP_SUBSTR(issue_number, '^[0-9]+') AS UNSIGNED), 
+               issue_number ASC SEPARATOR ',') AS issue_urls,
            COUNT(*) AS count
     FROM comics_for_sale
     WHERE user_id = ?
     GROUP BY comic_title, years
     ORDER BY comic_title ASC
 ";
+
 $stmt2 = $conn->prepare($sql2);
 $stmt2->bind_param("i", $user_id);
 $stmt2->execute();
@@ -177,9 +187,39 @@ if (!$currency) {
   <title>Profile - Wanted, Selling & Matches</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
+    /* New CSS classes for fixed table layouts and columns */
+    .table-fixed {
+      table-layout: fixed;
+      width: 100%;
+    }
+    .fixed-title-col {
+      width: 300px;
+      white-space: normal;
+      word-wrap: break-word;
+    }
+    .fixed-small-col {
+      width: 80px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .fixed-cover-col {
+      width: 170px; /* used in non-matches tables */
+    }
+    /* New classes for Matches nested tables */
+    .matches-cover-col {
+      width: 80px;
+    }
+    .matches-title-col {
+      width: 390px; /* original 300px + extra 90px saved from cover column */
+      white-space: normal;
+      word-wrap: break-word;
+    }
+
+    /* Updated cover image size for main covers */
     .cover-img {
-      width: 150px;
-      height: 225px;
+      width: 160px;
+      height: 240px;
       object-fit: cover;
       margin: 5px;
       border: 1px solid #ddd;
@@ -189,7 +229,7 @@ if (!$currency) {
     .cover-wrapper {
       position: relative;
       display: inline-block;
-      width: 150px;
+      width: 160px;
     }
     .remove-cover, .remove-sale {
       position: absolute;
@@ -294,24 +334,24 @@ if (!$currency) {
       <?php if (empty($wantedSeries)): ?>
         <p>No wanted items found.</p>
       <?php else: ?>
-        <table class="table table-striped" id="wantedTable">
+        <table class="table table-striped table-fixed" id="wantedTable">
           <thead>
             <tr>
-              <th>Comic Title</th>
-              <th>Years</th>
-              <th>Issue Numbers</th>
-              <th>Count</th>
-              <th>Expand</th>
+              <th class="fixed-title-col">Comic Title</th>
+              <th class="fixed-small-col">Years</th>
+              <th class="fixed-title-col">Issue Numbers</th>
+              <th class="fixed-small-col">Count</th>
+              <th class="fixed-small-col">Expand</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($wantedSeries as $index => $series): ?>
               <tr class="main-row" data-index="<?php echo $index; ?>">
-                <td><?php echo htmlspecialchars($series['comic_title']); ?></td>
-                <td><?php echo htmlspecialchars($series['years']); ?></td>
-                <td><?php echo htmlspecialchars($series['issues']); ?></td>
-                <td><?php echo htmlspecialchars($series['count']); ?></td>
-                <td>
+                <td class="fixed-title-col"><?php echo htmlspecialchars($series['comic_title']); ?></td>
+                <td class="fixed-small-col"><?php echo htmlspecialchars($series['years']); ?></td>
+                <td class="fixed-title-col"><?php echo htmlspecialchars($series['issues']); ?></td>
+                <td class="fixed-small-col"><?php echo htmlspecialchars($series['count']); ?></td>
+                <td class="fixed-small-col">
                   <button class="btn btn-info btn-sm expand-btn" 
                           data-comic-title="<?php echo htmlspecialchars($series['comic_title']); ?>" 
                           data-years="<?php echo htmlspecialchars($series['years']); ?>" 
@@ -338,24 +378,24 @@ if (!$currency) {
       <?php if (empty($saleGroups)): ?>
         <p>No comics listed for sale.</p>
       <?php else: ?>
-        <table class="table table-striped" id="sellingTable">
+        <table class="table table-striped table-fixed" id="sellingTable">
           <thead>
             <tr>
-              <th>Comic Title</th>
-              <th>Years</th>
-              <th>Issue Numbers</th>
-              <th>Count</th>
-              <th>Expand</th>
+              <th class="fixed-title-col">Comic Title</th>
+              <th class="fixed-small-col">Years</th>
+              <th class="fixed-title-col">Issue Numbers</th>
+              <th class="fixed-small-col">Count</th>
+              <th class="fixed-small-col">Expand</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($saleGroups as $index => $group): ?>
               <tr class="main-row" data-index="<?php echo $index; ?>">
-                <td><?php echo htmlspecialchars($group['comic_title']); ?></td>
-                <td><?php echo htmlspecialchars($group['years']); ?></td>
-                <td><?php echo htmlspecialchars($group['issues']); ?></td>
-                <td><?php echo htmlspecialchars($group['count']); ?></td>
-                <td>
+                <td class="fixed-title-col"><?php echo htmlspecialchars($group['comic_title']); ?></td>
+                <td class="fixed-small-col"><?php echo htmlspecialchars($group['years']); ?></td>
+                <td class="fixed-title-col"><?php echo htmlspecialchars($group['issues']); ?></td>
+                <td class="fixed-small-col"><?php echo htmlspecialchars($group['count']); ?></td>
+                <td class="fixed-small-col">
                   <button class="btn btn-info btn-sm sale-expand-btn" 
                           data-comic-title="<?php echo htmlspecialchars($group['comic_title']); ?>" 
                           data-years="<?php echo htmlspecialchars($group['years']); ?>" 
@@ -386,13 +426,13 @@ if (!$currency) {
       <?php if (empty($groupedMatches)): ?>
         <p>No matches found at this time.</p>
       <?php else: ?>
-        <table class="table table-striped" id="matchesTable">
+        <table class="table table-striped table-fixed" id="matchesTable">
           <thead>
             <tr>
-              <th>Other Party</th>
-              <th># of Issues Matched</th>
-              <th>Contact</th>
-              <th>Expand</th>
+              <th class="fixed-title-col">Other Party</th>
+              <th class="fixed-small-col"># of Issues Matched</th>
+              <th class="fixed-small-col">Contact</th>
+              <th class="fixed-small-col">Expand</th>
             </tr>
           </thead>
           <tbody>
@@ -400,9 +440,9 @@ if (!$currency) {
                     $displayName = $userNamesMap[$otherUserId] ?? ('User #'.$otherUserId);
             ?>
               <tr class="match-main-row" data-index="<?php echo $otherUserId; ?>">
-                <td><?php echo htmlspecialchars($displayName); ?></td>
-                <td><?php echo count($matchesArray); ?></td>
-                <td>
+                <td class="fixed-title-col"><?php echo htmlspecialchars($displayName); ?></td>
+                <td class="fixed-small-col"><?php echo count($matchesArray); ?></td>
+                <td class="fixed-small-col">
                   <button class="btn btn-sm btn-primary send-message-btn" 
                           data-other-user-id="<?php echo $otherUserId; ?>"
                           data-other-username="<?php echo htmlspecialchars($displayName); ?>"
@@ -410,7 +450,7 @@ if (!$currency) {
                     PM
                   </button>
                 </td>
-                <td>
+                <td class="fixed-small-col">
                   <button class="btn btn-info btn-sm expand-match-btn" 
                           data-other-user-id="<?php echo $otherUserId; ?>">
                     Expand
@@ -429,22 +469,22 @@ if (!$currency) {
                   ?>
                   <?php if (!empty($buyMatches)): ?>
                     <h5>Comics You Can Buy From <?php echo htmlspecialchars($displayName); ?></h5>
-                    <table class="table table-bordered nested-table">
+                    <table class="table table-bordered nested-table table-fixed">
                       <thead>
                         <tr>
-                          <th>Cover</th>
-                          <th>Comic Title</th>
-                          <th>Issue #</th>
-                          <th>Year</th>
-                          <th>Condition</th>
-                          <th>Graded</th>
-                          <th>Price</th>
+                          <th class="matches-cover-col">Cover</th>
+                          <th class="matches-title-col">Comic Title</th>
+                          <th class="fixed-small-col">Issue #</th>
+                          <th class="fixed-small-col">Year</th>
+                          <th class="fixed-small-col">Condition</th>
+                          <th class="fixed-small-col">Graded</th>
+                          <th class="fixed-small-col">Price</th>
                         </tr>
                       </thead>
                       <tbody>
                         <?php foreach ($buyMatches as $m): ?>
                           <tr>
-                            <td style="width:70px;">
+                            <td class="matches-cover-col">
                               <img class="match-cover-img"
                                    src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>"
                                    data-context="buy"
@@ -456,14 +496,14 @@ if (!$currency) {
                                    data-graded="<?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?>"
                                    data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.htmlspecialchars($currency) : 'N/A'; ?>"
                                    alt="Cover"
-                                   style="width:60px; height:90px; object-fit:cover;">
+                                   style="width:80px; height:120px; object-fit:cover;">
                             </td>
-                            <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
-                            <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
-                            <td><?php echo htmlspecialchars($m['years']); ?></td>
-                            <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
-                            <td><?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?></td>
-                            <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.htmlspecialchars($currency) : 'N/A'; ?></td>
+                            <td class="matches-title-col"><?php echo htmlspecialchars($m['comic_title']); ?></td>
+                            <td class="fixed-small-col"><?php echo htmlspecialchars($m['issue_number']); ?></td>
+                            <td class="fixed-small-col"><?php echo htmlspecialchars($m['years']); ?></td>
+                            <td class="fixed-small-col"><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
+                            <td class="fixed-small-col"><?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?></td>
+                            <td class="fixed-small-col"><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.htmlspecialchars($currency) : 'N/A'; ?></td>
                           </tr>
                         <?php endforeach; ?>
                       </tbody>
@@ -472,22 +512,22 @@ if (!$currency) {
   
                   <?php if (!empty($sellMatches)): ?>
                     <h5>Comics You Can Sell To <?php echo htmlspecialchars($displayName); ?></h5>
-                    <table class="table table-bordered nested-table">
+                    <table class="table table-bordered nested-table table-fixed">
                       <thead>
                         <tr>
-                          <th>Cover</th>
-                          <th>Comic Title</th>
-                          <th>Issue #</th>
-                          <th>Year</th>
-                          <th>Condition</th>
-                          <th>Graded</th>
-                          <th>Price</th>
+                          <th class="matches-cover-col">Cover</th>
+                          <th class="matches-title-col">Comic Title</th>
+                          <th class="fixed-small-col">Issue #</th>
+                          <th class="fixed-small-col">Year</th>
+                          <th class="fixed-small-col">Condition</th>
+                          <th class="fixed-small-col">Graded</th>
+                          <th class="fixed-small-col">Price</th>
                         </tr>
                       </thead>
                       <tbody>
                         <?php foreach ($sellMatches as $m): ?>
                           <tr>
-                            <td style="width:70px;">
+                            <td class="matches-cover-col">
                               <img class="match-cover-img"
                                    src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>"
                                    data-context="sell"
@@ -499,14 +539,14 @@ if (!$currency) {
                                    data-graded="<?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?>"
                                    data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.htmlspecialchars($currency) : 'N/A'; ?>"
                                    alt="Cover"
-                                   style="width:60px; height:90px; object-fit:cover;">
+                                   style="width:80px; height:120px; object-fit:cover;">
                             </td>
-                            <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
-                            <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
-                            <td><?php echo htmlspecialchars($m['years']); ?></td>
-                            <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
-                            <td><?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?></td>
-                            <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.htmlspecialchars($currency) : 'N/A'; ?></td>
+                            <td class="matches-title-col"><?php echo htmlspecialchars($m['comic_title']); ?></td>
+                            <td class="fixed-small-col"><?php echo htmlspecialchars($m['issue_number']); ?></td>
+                            <td class="fixed-small-col"><?php echo htmlspecialchars($m['years']); ?></td>
+                            <td class="fixed-small-col"><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
+                            <td class="fixed-small-col"><?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?></td>
+                            <td class="fixed-small-col"><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.htmlspecialchars($currency) : 'N/A'; ?></td>
                           </tr>
                         <?php endforeach; ?>
                       </tbody>
@@ -749,28 +789,63 @@ if (!$currency) {
   // JavaScript helper to mimic PHP's getFinalImagePath logic
   function getFinalImagePathJS(raw) {
     raw = raw ? raw.trim() : '';
+    // If the image path is already absolute, return it as is.
+    if (raw.startsWith('/comicsmp/')) {
+        return raw;
+    }
     if (!raw || raw.toLowerCase() === 'null') {
-      return '/comicsmp/placeholder.jpg';
+        return '/comicsmp/placeholder.jpg';
     }
     if (raw.startsWith('http://') || raw.startsWith('https://')) {
-      raw = raw.replace('/images/images/', '/images/');
+        raw = raw.replace('/images/images/', '/images/');
     } else {
-      raw = raw.replace('/images/images/', '/images/');
-      if (raw.startsWith('/comicsmp/images/')) {
-        // do nothing
-      } else if (raw.startsWith('/images/')) {
-        raw = '/comicsmp' + raw;
-      } else if (raw.startsWith('images/')) {
-        raw = '/comicsmp/' + raw;
-      } else {
-        raw = '/comicsmp/images/' + raw.replace(/^\/+/, '');
-      }
+        raw = raw.replace('/images/images/', '/images/');
+        if (raw.startsWith('/comicsmp/images/')) {
+            // do nothing
+        } else if (raw.startsWith('/images/')) {
+            raw = '/comicsmp' + raw;
+        } else if (raw.startsWith('images/')) {
+            raw = '/comicsmp/' + raw;
+        } else {
+            raw = '/comicsmp/images/' + raw.replace(/^\/+/, '');
+        }
     }
     if (!raw.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      raw += '.jpg';
+        raw += '.jpg';
     }
     return raw;
-  }
+}
+
+
+  // Sorting function for cover images based on data-issue-number attribute.
+  // Updated sorting function for cover images based on data-issue-number attribute.
+function sortCovers(containerSelector) {
+    var $container = $(containerSelector);
+    var $covers = $container.children();
+    $covers.sort(function(a, b) {
+        // Remove leading '#' for proper numeric comparison.
+        var issueAFull = ($(a).data("issue-number") || "").toString();
+        var issueBFull = ($(b).data("issue-number") || "").toString();
+        var issueA = issueAFull.replace(/^#/, '');
+        var issueB = issueBFull.replace(/^#/, '');
+        
+        // Extract the numeric portion using a regular expression.
+        var matchA = issueA.match(/^\d+/);
+        var matchB = issueB.match(/^\d+/);
+        var numA = matchA ? parseInt(matchA[0], 10) : 0;
+        var numB = matchB ? parseInt(matchB[0], 10) : 0;
+        
+        // Compare numeric parts.
+        if (numA !== numB) {
+            return numA - numB;
+        } else {
+            // If numeric parts are the same, fallback to string comparison.
+            return issueA.localeCompare(issueB, undefined, {numeric:true, sensitivity:'base'});
+        }
+    });
+    $container.html($covers);
+}
+
 
   // Set current user ID and currency from PHP
   var currentUserId = <?php echo json_encode($user_id); ?>;
@@ -815,31 +890,34 @@ if (!$currency) {
     }
   
     // Expand for Wanted List
-    $('#wantedTable').on("click", ".expand-btn", function (e) {
-      e.stopPropagation();
-      var btn = $(this);
-      var index = btn.data("index");
-      var comicTitle = btn.data("comic-title");
-      var years = btn.data("years");
-      var issueUrls = btn.data("issue-urls");
-      var rowSelector = "#expand-" + index;
-      if ($(rowSelector).is(":visible")) {
+$('#wantedTable').on("click", ".expand-btn", function (e) {
+    e.stopPropagation();
+    var btn = $(this);
+    var index = btn.data("index");
+    var comicTitle = btn.data("comic-title");
+    var years = btn.data("years");
+    var issueUrls = btn.data("issue-urls");
+    var rowSelector = "#expand-" + index;
+    if ($(rowSelector).is(":visible")) {
         $(rowSelector).slideUp();
         return;
-      }
-      $.ajax({
+    }
+    $.ajax({
         url: "getSeriesCovers.php",
         method: "GET",
         data: { comic_title: comicTitle, years: years, issue_urls: issueUrls },
         success: function (html) {
-          $("#covers-" + index).html(html);
-          $(rowSelector).slideDown();
+            $("#covers-" + index).html(html);
+            // *** Comment out or remove the sort call so SQL ordering is preserved ***
+            // sortCovers("#covers-" + index);
+            $(rowSelector).slideDown();
         },
         error: function () {
-          alert("Error loading series covers.");
+            alert("Error loading series covers.");
         }
-      });
     });
+});
+
   
     // Expand for Sales List
     $('#sellingTable').on("click", ".sale-expand-btn", function (e) {
@@ -860,6 +938,8 @@ if (!$currency) {
         data: { comic_title: comicTitle, years: years, issue_urls: issueUrls },
         success: function (html) {
           $("#sale-covers-" + index).html(html);
+          // Call sortCovers after covers are loaded
+          sortCovers("#sale-covers-" + index);
           $(rowSelector).slideDown();
         },
         error: function () {
@@ -1163,7 +1243,7 @@ if (!$currency) {
            html += '<div class="form-check mb-2 d-flex align-items-start" style="gap: 10px;">';
            html += '<input class="form-check-input mt-1 match-checkbox" type="checkbox" value="'+ idx +'" id="match_'+idx+'">';
            html += '<label class="form-check-label d-flex align-items-center" for="match_'+idx+'" style="gap:10px;">';
-           html += '<img src="'+ imagePath +'" alt="Cover" style="width:50px; height:75px; object-fit:cover;">';
+           html += '<img src="'+ imagePath +'" alt="Cover" style="width:80px; height:120px; object-fit:cover;">';
            html += '<span>';
            html += match.comic_title + " (" + match.years + ") Issue #" + issueNum;
            if(match.comic_condition) {
@@ -1187,7 +1267,7 @@ if (!$currency) {
            html += '<div class="form-check mb-2 d-flex align-items-start" style="gap: 10px;">';
            html += '<input class="form-check-input mt-1 match-checkbox" type="checkbox" value="'+ idx +'" id="match_'+idx+'">';
            html += '<label class="form-check-label d-flex align-items-center" for="match_'+idx+'" style="gap:10px;">';
-           html += '<img src="'+ imagePath +'" alt="Cover" style="width:50px; height:75px; object-fit:cover;">';
+           html += '<img src="'+ imagePath +'" alt="Cover" style="width:80px; height:120px; object-fit:cover;">';
            html += '<span>';
            html += match.comic_title + " (" + match.years + ") Issue #" + issueNum;
            if(match.comic_condition) {

@@ -46,15 +46,15 @@ if (empty($comic_title) || empty($years) || empty($issue_urls_str)) {
 $issue_urls = array_map('trim', explode(',', $issue_urls_str));
 $placeholders = implode(',', array_fill(0, count($issue_urls), '?'));
 
-// Use the Date from the comics table by joining and using backticks.
+// Modified SQL: Also retrieve the comic's image as fallback
 $sql = "
     SELECT s.id AS listing_id, s.Image_Path, s.Issue_Number, s.comic_condition, s.price, s.graded,
-           c.Tab, c.Variant, c.`Date` AS comic_date, s.Issue_URL AS issue_url
+           c.Image_Path AS Comic_Image_Path, c.Tab, c.Variant, c.`Date` AS comic_date, s.Issue_URL AS issue_url
     FROM comics_for_sale s
     LEFT JOIN comics c ON s.Issue_URL = c.Issue_URL
     WHERE s.Comic_Title = ? AND s.Years = ? AND s.Issue_URL IN ($placeholders)
     GROUP BY s.Issue_URL
-    ORDER BY LENGTH(s.Issue_Number), s.Issue_Number ASC
+    ORDER BY CAST(REGEXP_SUBSTR(s.Issue_Number, '^[0-9]+') AS UNSIGNED), s.Issue_Number ASC
 ";
 
 $stmt = $conn->prepare($sql);
@@ -71,40 +71,47 @@ $result = $stmt->get_result();
 
 $output = '<div class="d-flex flex-wrap justify-content-center">';
 while ($row = $result->fetch_assoc()) {
-    // Determine image path.
+    // Updated image-path logic:
+    // Determine sale image path first.
     $rawPath = trim($row['Image_Path'] ?? '');
-    if(empty($rawPath) || strtolower($rawPath) === 'null') {
-        $imgPath = '/comicsmp/placeholder.jpg';
-    } elseif(filter_var($rawPath, FILTER_VALIDATE_URL)) {
+    // If sale image is empty or equals 'null' or is a placeholder, try the comic's image:
+    if (empty($rawPath) || strtolower($rawPath) === 'null' || strtolower(basename($rawPath)) === 'placeholder.jpg') {
+        $rawPath = trim($row['Comic_Image_Path'] ?? '');
+    }
+    // If still empty, use the placeholder (force absolute URL)
+    if (empty($rawPath) || strtolower($rawPath) === 'null') {
+        $imgPath = 'http://' . $_SERVER['HTTP_HOST'] . '/comicsmp/placeholder.jpg';
+    } elseif (filter_var($rawPath, FILTER_VALIDATE_URL)) {
         $imgPath = $rawPath;
-    } elseif(strpos($rawPath, '/comicsmp/images/') === 0) {
+    } elseif (strpos($rawPath, '/comicsmp/') === 0) {
         $imgPath = $rawPath;
-    } elseif(strpos($rawPath, '/images/') === 0) {
+    } elseif (strpos($rawPath, '/images/') === 0) {
         $imgPath = '/comicsmp' . $rawPath;
-    } elseif(strpos($rawPath, 'images/') === 0) {
+    } elseif (strpos($rawPath, 'images/') === 0) {
         $imgPath = '/comicsmp/' . $rawPath;
     } else {
         $imgPath = '/comicsmp/images/' . $rawPath;
     }
+    
+    // Process Issue_Number and ensure it has a '#' prefix.
     $issue = trim($row['Issue_Number'] ?? '');
-    if(!empty($issue) && strpos($issue, '#') !== 0) {
+    if (!empty($issue) && strpos($issue, '#') !== 0) {
         $issue = '#' . $issue;
     }
+    
     $tab = htmlspecialchars($row['Tab'] ?? 'N/A');
     $variant = htmlspecialchars($row['Variant'] ?? 'N/A');
     $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
     $issue_url = htmlspecialchars($row['issue_url'] ?? '');
     
-    // Retrieve additional sale details
+    // Retrieve additional sale details.
     $listing_id = htmlspecialchars($row['listing_id'] ?? '');
     $condition = htmlspecialchars($row['comic_condition'] ?? '');
-    // Convert the price value to a float and format it to 2 decimals.
     $price_val = floatval($row['price'] ?? 0);
     $priceFormatted = number_format($price_val, 2);
     $graded = htmlspecialchars($row['graded'] ?? '');
     $gradedText = ($graded == "1") ? "Yes" : "No";
     
-    // Output the cover with data attributes (including price with currency)
     $output .= '<div class="position-relative m-2 cover-wrapper" style="width: 150px;" 
                  data-comic-title="' . htmlspecialchars($comic_title) . '" 
                  data-years="' . htmlspecialchars($years) . '" 
@@ -117,14 +124,11 @@ while ($row = $result->fetch_assoc()) {
                  data-graded="' . $gradedText . '"
                  data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '">';
     
-    // Add cover image
     $output .= '<img src="' . htmlspecialchars($imgPath) . '" alt="Issue ' . htmlspecialchars($issue) . '" class="cover-img popup-trigger" style="width: 150px; height: 225px; cursor: pointer;">';
     
-    // Add Edit and Delete icons at top right for sale items
     $output .= '<button class="edit-sale" style="position: absolute; top: 2px; right: 26px; background: rgba(0,123,255,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" data-listing-id="' . $listing_id . '" data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '" data-condition="' . $condition . '" data-graded="' . $graded . '">E</button>';
     $output .= '<button class="remove-sale" style="position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" data-listing-id="' . $listing_id . '">&times;</button>';
     
-    // Display additional details under the cover, with currency appended to price.
     $output .= '<div class="text-center small">Issue: ' . htmlspecialchars($issue) . '</div>';
     $output .= '<div class="text-center small">Condition: ' . $condition . '</div>';
     $output .= '<div class="text-center small">Graded: ' . $gradedText . '</div>';
