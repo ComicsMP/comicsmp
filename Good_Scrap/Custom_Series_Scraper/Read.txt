@@ -1,0 +1,10 @@
+This is meant if I notice that a certain series is missing issues or variants from a scrap not complete
+Running this will get it all updated.
+Just need to enter urls of the series (with grid page .. meaning main series page with all the issues for this series and also see the tabs too ) 
+
+We ahve two scripts 
+
+Scrape_Series_Fresh_When_Small is for small less than 100 issues. it will simply scan everything and our other scrips will insert what is needed in step 2 and step 3
+
+Scrape_Series_Looking_For_Missing_Only_Large.py is for large comic series like over 150 issues and more so it doesn't crawl everything it will look at our DB for missing issues and focus on those.
+

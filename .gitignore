@@ -1,0 +1,11 @@
+/uploads/
+/FAISS_Mobile_Matching/faiss_index_L2.bin
+/FAISS_Mobile_Matching/uploads/
+*.zip
+*.rar
+*.log
+images/
+debug_log.txt
+Good_Scrap/Custom_Series_Scraper/scraped_comics_series.log
+Good_Scrap/Step_4/missing_upcs_log.txt
+Good_Scrap/Step_4/found_upcs_log.txt

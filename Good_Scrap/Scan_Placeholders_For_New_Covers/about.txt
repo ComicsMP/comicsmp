@@ -1,0 +1,4 @@
+These 3 codes looks at our DB for comics that have placeholders, and then visits the source
+website to see if there is updates of new covers for this comics.
+Try to run this once every 2 weeks. 
+It send the final results to Step 2 ,, which can be processed manually or with the daily script.
