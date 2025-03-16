@@ -111,7 +111,7 @@ while ($row = $result->fetch_assoc()) {
     $priceFormatted = number_format($price_val, 2);
     $graded = htmlspecialchars($row['graded'] ?? '');
     $gradedText = ($graded == "1") ? "Yes" : "No";
-    $upc = htmlspecialchars($row['UPC'] ?? 'N/A'); // ✅ Added UPC field
+    $upc = htmlspecialchars($row['UPC'] ?? 'N/A'); // ✅ Added UPC field (ONLY for popup)
     
     $output .= '<div class="position-relative m-2 cover-wrapper" style="width: 150px;" 
                  data-comic-title="' . htmlspecialchars($comic_title) . '" 
@@ -124,7 +124,7 @@ while ($row = $result->fetch_assoc()) {
                  data-condition="' . $condition . '"
                  data-graded="' . $gradedText . '"
                  data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '"
-                 data-upc="' . $upc . '">';  // ✅ Added UPC as a data attribute
+                 data-upc="' . $upc . '">';  // ✅ UPC only stored as data attribute for modal
     
     $output .= '<img src="' . htmlspecialchars($imgPath) . '" alt="Issue ' . htmlspecialchars($issue) . '" class="cover-img popup-trigger" style="width: 150px; height: 225px; cursor: pointer;">';
     
@@ -135,7 +135,6 @@ while ($row = $result->fetch_assoc()) {
     $output .= '<div class="text-center small">Condition: ' . $condition . '</div>';
     $output .= '<div class="text-center small">Graded: ' . $gradedText . '</div>';
     $output .= '<div class="text-center small">Price: $' . $priceFormatted . ' ' . htmlspecialchars($currency) . '</div>';
-    $output .= '<div class="text-center small">UPC: ' . $upc . '</div>'; // ✅ Display UPC
     
     $output .= '</div>';
 }
