@@ -114,7 +114,7 @@ require_once 'db_connection.php';
     .popup-image-container {
       flex: 0 0 40%;
       display: flex;
-      align-items: center;
+      align-items: flex-start; /* This keeps the image at the top */
       justify-content: center;
     }
     .popup-image-container img {
@@ -138,6 +138,15 @@ require_once 'db_connection.php';
       margin: 5px;
       object-fit: cover;
       cursor: pointer;
+    }
+    /* Style for the clickable "Show All Similar Issues" link */
+    #showAllSimilarIssues {
+      text-align: right;
+      width: 100%;
+      cursor: pointer;
+      color: blue;
+      margin-top: 5px;
+      font-size: 0.9rem;
     }
     /* Optional: Blue border for graded comics */
     .graded-cover .cover-img {
@@ -271,6 +280,11 @@ require_once 'db_connection.php';
               <th>Date:</th>
               <td id="popupDate"></td>
             </tr>
+            <tr>
+              <th>UPC:</th>
+              <td id="popupUPC"></td>
+            </tr>
+
           </table>
           <div class="similar-issues">
             <h6>Similar Issues</h6>
@@ -480,30 +494,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
- // ADD TO WANTED HANDLER in new.php
-$(document).on("click", ".add-to-wanted", function(e) {
-  e.preventDefault();
-  const btn = $(this);
-  if (btn.is(":disabled")) return;
-  const comicTitle = btn.data("series-name");
-  const issueNumber = btn.data("issue-number");
-  const seriesYear = btn.data("series-year");
-  const tab = btn.data("tab") || "";       // Pass Tab (or empty string)
-  const variant = btn.data("variant") || ""; // Pass Variant (or empty string)
-  const issueUrl = btn.data("issue-url") || "";
-  $.ajax({
-    url: "addToWanted.php",
-    method: "POST",
-    data: { comic_title: comicTitle, issue_number: issueNumber, years: seriesYear, tab: tab, variant: variant, issue_url: issueUrl },
-    success: function(response) {
-      btn.replaceWith('<button class="btn btn-success add-to-wanted me-2 mb-2" disabled>Added</button>');
-    },
-    error: function() {
-      alert("Error adding comic to wanted list");
-    }
+  // ADD TO WANTED HANDLER in new.php
+  $(document).on("click", ".add-to-wanted", function(e) {
+    e.preventDefault();
+    const btn = $(this);
+    if (btn.is(":disabled")) return;
+    const comicTitle = btn.data("series-name");
+    const issueNumber = btn.data("issue-number");
+    const seriesYear = btn.data("series-year");
+    const tab = btn.data("tab") || "";
+    const variant = btn.data("variant") || "";
+    const issueUrl = btn.data("issue-url") || "";
+    $.ajax({
+      url: "addToWanted.php",
+      method: "POST",
+      data: { comic_title: comicTitle, issue_number: issueNumber, years: seriesYear, tab: tab, variant: variant, issue_url: issueUrl },
+      success: function(response) {
+        btn.replaceWith('<button class="btn btn-success add-to-wanted me-2 mb-2" disabled>Added</button>');
+      },
+      error: function() {
+        alert("Error adding comic to wanted list");
+      }
+    });
   });
-});
-
 
   // SELL FORM HANDLERS
   $(document).on("click", ".sell-button", function(e) {
@@ -527,9 +540,31 @@ $(document).on("click", ".add-to-wanted", function(e) {
     });
   });
 
+  // Function to load similar issues via AJAX
+  function loadSimilarIssues(comicTitle, years, issueNumber, loadAll) {
+    let requestData = { comic_title: comicTitle, years: years, issue_number: issueNumber };
+    if (loadAll) {
+      requestData.limit = "all";
+    }
+    $.ajax({
+      url: "getSimilarIssues.php",
+      method: "GET",
+      data: requestData,
+      success: function(similarHtml) {
+        if (!loadAll) {
+          // Append the "Show All Similar Issues" link at the far right
+          similarHtml += "<div id='showAllSimilarIssues'>Show All Similar Issues</div>";
+        }
+        $("#similarIssues").html(similarHtml);
+      },
+      error: function() {
+        $("#similarIssues").html("<p class='text-danger'>Could not load similar issues.</p>");
+      }
+    });
+  }
+
   // New Popup Modal for Cover Image with Details & Similar Issues
   $(document).on("click", ".gallery-item img", function(e) {
-    // Prevent triggering popup when clicking inside a button
     if ($(e.target).closest("button").length) return;
     
     const parent = $(this).closest(".gallery-item");
@@ -539,51 +574,55 @@ $(document).on("click", ".add-to-wanted", function(e) {
     const issueNumber = parent.data("issue-number") || "N/A";
     const tab = parent.data("tab") || "N/A";
     const variant = parent.data("variant") || "N/A";
-    // Retrieve date using attr() to get the exact attribute value.
     const date = parent.attr("data-date") || "N/A";
     
-    $("#popupMainImage").attr("src", fullImageUrl);
-    $("#popupComicTitle").text(comicTitle);
-    $("#popupYears").text(years);
-    $("#popupIssueNumber").text(issueNumber);
-    $("#popupTab").text(tab);
-    $("#popupVariant").text(variant);
-    $("#popupDate").text(date);
-    
-    // Load similar issues via AJAX (ensure getSimilarIssues.php is implemented)
-    $.ajax({
-      url: "getSimilarIssues.php",
-      method: "GET",
-      data: { comic_title: comicTitle, years: years, issue_number: issueNumber },
-      success: function(similarHtml) {
-        $("#similarIssues").html(similarHtml);
-      },
-      error: function() {
-        $("#similarIssues").html("<p class='text-danger'>Could not load similar issues.</p>");
-      }
-    });
+ $("#popupMainImage").attr("src", fullImageUrl);
+$("#popupComicTitle").text(comicTitle);
+$("#popupYears").text(years);
+$("#popupIssueNumber").text(issueNumber);
+$("#popupTab").text(tab);
+$("#popupVariant").text(variant);
+$("#popupDate").text(date);
+const upc = parent.data("upc") || "N/A";  // Use 'parent' here instead of 'thumb'
+$("#popupUPC").text(upc);
+
+// Load similar issues (default limited to 4)
+loadSimilarIssues(comicTitle, years, issueNumber, false);
+
     
     const modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
     modal.show();
   });
 
+  // Handler for clicking "Show All Similar Issues"
+  $(document).on("click", "#showAllSimilarIssues", function() {
+    const comicTitle = $("#popupComicTitle").text() || "";
+    const years = $("#popupYears").text() || "";
+    const issueNumber = $("#popupIssueNumber").text() || "";
+    loadSimilarIssues(comicTitle, years, issueNumber, true);
+  });
+
   // When a similar issue thumbnail is clicked, update the popup details
   $(document).on("click", ".similar-issue-thumb", function() {
-    const thumb = $(this);
-    const comicTitle = thumb.data("comic-title") || "N/A";
-    const years = thumb.data("years") || "N/A";
-    const issueNumber = thumb.data("issue-number") || "N/A";
-    const tab = thumb.data("tab") || "N/A";
-    const variant = thumb.data("variant") || "N/A";
-    const date = thumb.data("date") || "N/A";
-    $("#popupMainImage").attr("src", thumb.attr("src"));
-    $("#popupComicTitle").text(comicTitle);
-    $("#popupYears").text(years);
-    $("#popupIssueNumber").text(issueNumber);
-    $("#popupTab").text(tab);
-    $("#popupVariant").text(variant);
-    $("#popupDate").text(date);
-  });
+  const thumb = $(this);
+  const comicTitle = thumb.data("comic-title") || "N/A";
+  const years = thumb.data("years") || "N/A";
+  const issueNumber = thumb.data("issue-number") || "N/A";
+  const tab = thumb.data("tab") || "N/A";
+  const variant = thumb.data("variant") || "N/A";
+  const date = thumb.data("date") || "N/A";
+  const upc = thumb.data("upc") || "N/A";  // New: retrieve UPC from the clicked thumbnail
+
+  $("#popupMainImage").attr("src", thumb.attr("src"));
+  $("#popupComicTitle").text(comicTitle);
+  $("#popupYears").text(years);
+  $("#popupIssueNumber").text(issueNumber);
+  $("#popupTab").text(tab);
+  $("#popupVariant").text(variant);
+  $("#popupDate").text(date);
+  $("#popupUPC").text(upc); // New: update the UPC field in the popup
+});
+
   
   // Allow clicking the main popup image to open full-size in a new window
   $(document).on("click", "#popupMainImage", function() {

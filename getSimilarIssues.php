@@ -3,40 +3,49 @@ session_start();
 require_once 'db_connection.php';
 
 // Retrieve GET parameters
-$comic_title   = $_GET['comic_title'] ?? '';
-$years         = $_GET['years'] ?? '';
-$issue_number  = $_GET['issue_number'] ?? '';
-$isSale        = isset($_GET['sale']) && $_GET['sale'] == '1';
+$comic_title  = $_GET['comic_title'] ?? '';
+$years        = $_GET['years'] ?? '';
+$issue_number = $_GET['issue_number'] ?? '';
+$isSale       = isset($_GET['sale']) && $_GET['sale'] == '1';
 
 if (empty($comic_title) || empty($years)) {
     echo "";
     exit;
 }
 
+// Determine whether to apply a limit. If 'limit=all' is set, do not limit.
+$limitClause = "";
+if (!isset($_GET['limit']) || $_GET['limit'] !== 'all') {
+    $limitClause = "LIMIT 4";
+}
+
 if ($isSale) {
     // For sale items, join with comics_for_sale to fetch extra fields.
     $sql = "
       SELECT s.Issue_Number, s.Image_Path, s.comic_condition, s.price, s.graded,
-             c.Tab, c.Variant, c.`Date` AS comic_date
+             c.Tab, c.Variant, c.`Date` AS comic_date, c.UPC
       FROM comics_for_sale s
       LEFT JOIN comics c ON s.Issue_URL = c.Issue_URL
       WHERE s.Comic_Title = ? AND s.Years = ? AND s.Issue_Number <> ?
       ORDER BY s.Issue_Number ASC
-      LIMIT 4
+      $limitClause
     ";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("sss", $comic_title, $years, $issue_number);
 } else {
     // For non-sale items, query the comics table.
     $sql = "
-      SELECT Issue_Number, Image_Path, Tab, Variant, `Date`
+      SELECT Issue_Number, Image_Path, Tab, Variant, `Date`, UPC
       FROM comics
-      WHERE Comic_Title = ? AND Years = ? AND Issue_Number <> ?
+      WHERE Comic_Title = ? 
+        AND Years = ? 
+        AND Issue_Number LIKE CONCAT(?, '%') 
+        AND Issue_Number <> ?
       ORDER BY Issue_Number ASC
-      LIMIT 4
+      $limitClause
     ";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sss", $comic_title, $years, $issue_number);
+    $stmt->bind_param("ssss", $comic_title, $years, $issue_number, $issue_number);
 }
 
 $stmt->execute();
@@ -73,12 +82,13 @@ while ($row = $result->fetch_assoc()) {
         $graded = "N/A";
     }
     
-    // Use Tab, Variant, and Date (or comic_date if sale)
+    // Use Tab, Variant, Date (or comic_date if sale), and now UPC.
     $tab = htmlspecialchars($row['Tab'] ?? 'N/A');
     $variant = htmlspecialchars($row['Variant'] ?? 'N/A');
     $comic_date = htmlspecialchars(($isSale ? $row['comic_date'] : $row['Date']) ?? 'N/A');
+    $upc = htmlspecialchars($row['UPC'] ?? 'N/A');
     
-    // Build the thumbnail with extra data attributes
+    // Build the thumbnail with extra data attributes; added vertical-align: top.
     $output .= "<img src='" . htmlspecialchars($imgPath) . "' alt='Issue $issue' class='similar-issue-thumb'
                 data-comic-title='" . htmlspecialchars($comic_title) . "'
                 data-years='" . htmlspecialchars($years) . "'
@@ -86,10 +96,11 @@ while ($row = $result->fetch_assoc()) {
                 data-tab='$tab'
                 data-variant='$variant'
                 data-date='$comic_date'
+                data-upc='$upc'
                 data-condition='$condition'
                 data-graded='$graded'
                 data-price='$price'
-                style='width:80px; height:120px; object-fit:cover; margin:5px; cursor:pointer;'>";
+                style='vertical-align: top; width:80px; height:120px; object-fit:cover; margin:5px; cursor:pointer;'>";
 }
 
 $stmt->close();

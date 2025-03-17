@@ -100,6 +100,7 @@ try {
     $whereClause = implode(' AND ', $whereParts);
 
     // Main query – note the use of GROUP BY c.ID to eliminate duplicates.
+    // NOTE: UPC is now selected as c.UPC AS upc
     $sql = "
         SELECT
           c.ID            AS comic_id,
@@ -112,14 +113,15 @@ try {
           c.Image_Path    AS image_path,
           c.Issue_URL     AS issue_url,
           c.`Date`        AS comic_date,
+          c.UPC           AS upc,           -- Added UPC field
           MAX(w.id)       AS wanted_id
         FROM Comics c
         LEFT JOIN wanted_items w
-  ON c.Comic_Title = w.comic_title
- AND REPLACE(c.Issue_Number, '#', '') = REPLACE(w.issue_number, '#', '')
- AND c.Years = w.years
- AND w.user_id = ?
- AND c.Issue_URL = w.issue_url
+          ON c.Comic_Title = w.comic_title
+         AND REPLACE(c.Issue_Number, '#', '') = REPLACE(w.issue_number, '#', '')
+         AND c.Years = w.years
+         AND w.user_id = ?
+         AND c.Issue_URL = w.issue_url
         WHERE $whereClause
         GROUP BY c.ID
         ORDER BY CAST(REPLACE(c.Issue_Number, '#', '') AS UNSIGNED) ASC,
@@ -152,6 +154,8 @@ try {
             $wanted  = !empty($row['wanted_id']) ? 1 : 0;
             $issue_url = htmlspecialchars($row['issue_url'] ?? '');
             $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
+            // Retrieve UPC value
+            $upc = htmlspecialchars($row['upc'] ?? 'N/A');
             
             // Process image path
             $rawPath = trim($row['image_path'] ?? '');
@@ -170,6 +174,7 @@ try {
                 $issue = '#' . $issue;
             }
             
+            // Add the UPC as a data attribute (data-upc)
             echo "<div class='gallery-item' 
                           data-comic-title='{$title}' 
                           data-years='{$yrs}' 
@@ -180,7 +185,8 @@ try {
                           data-wanted='{$wanted}'
                           data-full='" . htmlspecialchars($imgPath) . "'
                           data-issue_url='{$issue_url}'
-                          data-date='{$comic_date}'>\n";
+                          data-date='{$comic_date}'
+                          data-upc='{$upc}'>\n";  // <-- UPC added here
             echo "<img src='" . htmlspecialchars($imgPath) . "' alt='" . $title . "' class='comic-image' data-full='" . htmlspecialchars($imgPath) . "'>\n";
             echo "<p class='series-issue'>Issue: " . $issue . "</p>\n";
             echo "</div>\n";
