@@ -2,7 +2,7 @@
 session_start();
 require_once 'db_connection.php';
 
-// Endpoint: fetch available tabs based on selected year.
+// Endpoint: Fetch available tabs based on the selected year.
 if (isset($_GET['get_tabs'])) {
     $yearForTabs = $_GET['year'] ?? '';
     if (empty($yearForTabs)) {
@@ -26,24 +26,23 @@ if (isset($_GET['get_tabs'])) {
     exit;
 }
 
-$user_id     = $_SESSION['user_id'] ?? 0;
-$comic_title = $_GET['comic_title']      ?? '';
-$year        = $_GET['year']             ?? '';
-$volume      = $_GET['volume']           ?? '';  // New parameter
-$tab         = $_GET['tab']              ?? '';
-$issue_number= $_GET['issue_number']     ?? '';
-$include_var = $_GET['include_variants'] ?? 0;
+$user_id      = $_SESSION['user_id'] ?? 0;
+$comic_title  = $_GET['comic_title']      ?? '';
+$year         = $_GET['year']             ?? '';
+$volume       = $_GET['volume']           ?? '';
+$tab          = $_GET['tab']              ?? '';
+$issue_number = $_GET['issue_number']     ?? '';
+$include_var  = $_GET['include_variants'] ?? 0;
 
-// Save the last selected issue number when on the Issues tab.
+// Store the last selected issue number for switching between tabs.
 if ($tab === 'Issues' && !empty($issue_number)) {
     $_SESSION['last_issue_number'] = str_replace('#', '', $issue_number);
 }
-// When switching to Variants without an issue number provided, use the last selected issue.
 if ($tab === 'Variants' && empty($issue_number) && isset($_SESSION['last_issue_number'])) {
     $issue_number = $_SESSION['last_issue_number'];
 }
 
-// Ensure required parameters.
+// Validate required parameters.
 if (!$comic_title || (!$year && trim($volume) === "") || !$tab) {
     echo "<p class='text-danger'>Invalid parameters provided.</p>";
     exit;
@@ -59,7 +58,7 @@ try {
     $params[]     = $comic_title;
     $types       .= 's';
 
-    // Filter by volume (if provided) or by year.
+    // Filter by volume or year.
     if (trim($volume) !== "") {
         $whereParts[] = "c.Volume = ?";
         $params[]     = trim($volume);
@@ -70,7 +69,7 @@ try {
         $types       .= 's';
     }
 
-    // Filter by tab (if not 'All').
+    // Filter by tab.
     if ($tab !== 'All') {
         $whereParts[] = "c.Tab = ?";
         $params[]     = $tab;
@@ -80,27 +79,23 @@ try {
     // Issue number filtering.
     if ($issue_number) {
         if ($tab === 'Issues') {
-            // For Issues: exact match on the simple issue number.
             $whereParts[] = "REPLACE(c.Issue_Number, '#', '') = ?";
             $params[]     = str_replace('#', '', $issue_number);
             $types       .= 's';
         } elseif ($tab === 'Variants') {
-            // For Variants: use the numeric part so that both cover A and its variants are included.
             $whereParts[] = "CAST(REPLACE(c.Issue_Number, '#', '') AS UNSIGNED) = ?";
             $params[]     = (int) str_replace('#', '', $issue_number);
             $types       .= 'i';
         }
     }
-    
-    // For the Issues tab (when variants are not included), show only cover A.
+
+    // For Issues tab, exclude variants unless requested.
     if ($tab === 'Issues' && !$include_var) {
         $whereParts[] = "REPLACE(c.Issue_Number, '#', '') REGEXP '^[0-9]+$'";
     }
 
     $whereClause = implode(' AND ', $whereParts);
 
-    // Main query – note the use of GROUP BY c.ID to eliminate duplicates.
-    // NOTE: UPC is now selected as c.UPC AS upc
     $sql = "
         SELECT
           c.ID            AS comic_id,
@@ -113,7 +108,7 @@ try {
           c.Image_Path    AS image_path,
           c.Issue_URL     AS issue_url,
           c.`Date`        AS comic_date,
-          c.UPC           AS upc,           -- Added UPC field
+          c.UPC           AS upc,
           MAX(w.id)       AS wanted_id
         FROM Comics c
         LEFT JOIN wanted_items w
@@ -142,7 +137,7 @@ try {
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Output each result as a gallery item
+    // Output results.
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $title   = htmlspecialchars($row['comic_title']  ?? '');
@@ -154,27 +149,29 @@ try {
             $wanted  = !empty($row['wanted_id']) ? 1 : 0;
             $issue_url = htmlspecialchars($row['issue_url'] ?? '');
             $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
-            // Retrieve UPC value
             $upc = htmlspecialchars($row['upc'] ?? 'N/A');
-            
-            // Process image path
+
+            // Process image path with placeholder
             $rawPath = trim($row['image_path'] ?? '');
             if (empty($rawPath) || strtolower($rawPath) === 'null') {
-                $imgPath = '/comicsmp/placeholder.jpg';
+                $imgPath = "http://localhost/comicsmp/images/default.jpg";
             } elseif (filter_var($rawPath, FILTER_VALIDATE_URL)) {
-                $imgPath = $rawPath;
-            } elseif (strpos($rawPath, '/comicsmp/images/') === 0) {
-                $imgPath = $rawPath;
-            } elseif (strpos($rawPath, '/images/') === 0) {
-                $imgPath = '/comicsmp' . $rawPath;
+                $imgPath = $rawPath; // Use full valid URLs as is
             } else {
-                $imgPath = $rawPath;
-            }
+               // Ensure correct concatenation with a leading slash if missing
+               if (strpos($rawPath, '/') !== 0) {
+                   $rawPath = '/' . $rawPath;
+               }
+               $imgPath = "http://localhost/comicsmp" . $rawPath;
+             }
+
+
+            // Ensure issue number formatting.
             if (strpos($issue, '#') !== 0) {
                 $issue = '#' . $issue;
             }
-            
-            // Add the UPC as a data attribute (data-upc)
+
+            // Output the gallery item with a corrected image path.
             echo "<div class='gallery-item' 
                           data-comic-title='{$title}' 
                           data-years='{$yrs}' 
@@ -186,7 +183,7 @@ try {
                           data-full='" . htmlspecialchars($imgPath) . "'
                           data-issue_url='{$issue_url}'
                           data-date='{$comic_date}'
-                          data-upc='{$upc}'>\n";  // <-- UPC added here
+                          data-upc='{$upc}'>\n";
             echo "<img src='" . htmlspecialchars($imgPath) . "' alt='" . $title . "' class='comic-image' data-full='" . htmlspecialchars($imgPath) . "'>\n";
             echo "<p class='series-issue'>Issue: " . $issue . "</p>\n";
             echo "</div>\n";
