@@ -1,21 +1,26 @@
 <?php
 require_once 'db_connection.php';
 
-$title = $_GET['comic_title'] ?? '';
-$year  = $_GET['year']        ?? '';
+$title   = $_GET['comic_title'] ?? '';
+$year    = $_GET['year'] ?? '';
+$country = $_GET['country'] ?? ''; // new: country parameter
 
-// Example: select distinct Tab from Comics
-$sql = "SELECT DISTINCT Tab FROM Comics 
-        WHERE Comic_Title = ?
-";
+$sql = "SELECT DISTINCT Tab FROM Comics WHERE Comic_Title = ?";
 $params = [$title];
 $types  = "s";
 
 if ($year) {
-    $sql .= " AND Years = ? ";
+    $sql .= " AND Years = ?";
     $params[] = $year;
     $types   .= "s";
 }
+
+if ($country) {
+    $sql .= " AND Country = ?";
+    $params[] = $country;
+    $types   .= "s";
+}
+
 $sql .= " ORDER BY Tab ASC";
 
 $stmt = $conn->prepare($sql);

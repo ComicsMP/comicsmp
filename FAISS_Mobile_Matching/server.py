@@ -5,7 +5,6 @@ import torchvision.transforms as transforms
 import numpy as np
 import faiss
 import pickle
-import mysql.connector
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image, ImageFilter, ExifTags
@@ -16,24 +15,16 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # -------------------- Flask Setup --------------------
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Allow cross-origin requests
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# -------------------- Database Config --------------------
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "comics_db"
-}
-
 # -------------------- Load EfficientNet Model --------------------
 def load_model():
     model = models.efficientnet_b7(weights=models.EfficientNet_B7_Weights.DEFAULT)
-    model.classifier = torch.nn.Identity()  # Extract only features
+    model.classifier = torch.nn.Identity()  # Extract features only
     model.eval()
     return model
 
@@ -41,8 +32,8 @@ model = load_model()
 
 # -------------------- Image Processing (for Mobile) --------------------
 transform = transforms.Compose([
-    transforms.Lambda(lambda img: img.filter(ImageFilter.SHARPEN)),  # 🔪 Sharpening to enhance details
-    transforms.Resize((600, 600)),  # ✅ Matches FAISS indexed images
+    transforms.Lambda(lambda img: img.filter(ImageFilter.SHARPEN)),  # Sharpen to enhance details
+    transforms.Resize((600, 600)),  # Resize to match FAISS indexed images
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
@@ -51,7 +42,7 @@ def process_mobile_image(image_path):
     """Handles common mobile image issues: rotation, resizing, format conversion."""
     try:
         with Image.open(image_path) as img:
-            # 🔄 Auto-rotate based on EXIF data
+            # Auto-rotate based on EXIF Orientation tag
             for orientation in ExifTags.TAGS.keys():
                 if ExifTags.TAGS[orientation] == "Orientation":
                     break
@@ -64,21 +55,21 @@ def process_mobile_image(image_path):
                 elif exif[orientation] == 8:
                     img = img.rotate(90, expand=True)
 
-            # 🔄 Convert to RGB (some phone images are CMYK)
+            # Convert to RGB (some images may be in CMYK)
             img = img.convert("RGB")
 
-            # 🔄 Convert non-JPEG images to JPEG for consistent processing
+            # Convert non-JPEG images to JPEG for consistent processing
             if img.format != "JPEG":
                 jpeg_path = image_path.replace(".png", ".jpg")
                 img.save(jpeg_path, "JPEG", quality=95)
-                return jpeg_path  # Return the new file path
+                return jpeg_path
 
-            return image_path  # Return original if already JPEG
+            return image_path
     except Exception as e:
         print(f"⚠️ Error processing mobile image: {e}")
         return None
 
-# -------------------- Load FAISS Index + Metadata --------------------
+# -------------------- Load FAISS Index and Metadata --------------------
 INDEX_FILE = "faiss_index_L2.bin"
 METADATA_FILE = "image_metadata.pkl"
 
@@ -87,15 +78,29 @@ if not os.path.exists(INDEX_FILE) or not os.path.exists(METADATA_FILE):
 
 index = faiss.read_index(INDEX_FILE)
 with open(METADATA_FILE, "rb") as f:
-    metadata = pickle.load(f)
+    metadata_list = pickle.load(f)
 
 print(f"✅ FAISS index loaded successfully with {index.ntotal} images.")
+
+# Build an in-memory dictionary for metadata lookups.
+# We support both dictionary and tuple/list formats.
+metadata_dict = {}
+for item in metadata_list:
+    key = None
+    if isinstance(item, dict):
+        key = item.get("Image_Path")
+    elif isinstance(item, (list, tuple)):
+        if len(item) > 0:
+            key = item[0]
+    if key and isinstance(key, str):
+        key = key.lower().replace(" ", "_")
+        metadata_dict[key] = item
 
 # -------------------- Extract Features --------------------
 def extract_features(image_path):
     """Extract a normalized 2560-d feature vector from an image."""
     try:
-        image_path = process_mobile_image(image_path)  # ✅ Preprocess mobile images
+        image_path = process_mobile_image(image_path)
         if not image_path:
             return None
 
@@ -108,7 +113,7 @@ def extract_features(image_path):
         features = features.numpy().flatten()
         if features.shape[0] != 2560:
             raise ValueError(f"Feature dimension mismatch! Expected 2560, got {features.shape[0]}")
-        return features / np.linalg.norm(features)  # Normalize
+        return features / np.linalg.norm(features)
     except Exception as e:
         print(f"⚠️ Error processing image '{image_path}': {e}")
         return None
@@ -124,39 +129,24 @@ def search_faiss(query_features, k=5):
 
     for i in range(len(I[0])):
         idx = I[0][i]
-        if idx < 0 or idx >= len(metadata):
-            continue  # Skip invalid indices
+        if idx < 0 or idx >= len(metadata_list):
+            continue
 
         dist_val = float(D[0][i])
-        filename = metadata[idx][0].lower().replace(" ", "_")  # Normalize filename
-
-        # ✅ Filter out bad matches
-        if dist_val > 1400:  # Adjust distance threshold for better accuracy
+        # Get the filename from metadata_list; ensure it's a string.
+        filename = metadata_list[idx][0]
+        if not filename:
+            continue
+        filename = str(filename).lower().replace(" ", "_")
+        if dist_val > 1400:  # Skip bad matches
             continue
 
         results.append((filename, dist_val))
 
-    # Debug outputs
     print("🔍 FAISS Raw Distances:", D)
     print("🔍 FAISS Raw Indices:", I)
     print("🔍 FAISS Matched Files (first 5):", results[:5])
     return results
-
-# -------------------- Query DB for Comic Details --------------------
-def get_comic_details(filename):
-    """Fetch comic details from comics_db."""
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor(dictionary=True)
-        db_filename = f"images/{filename}"
-        cursor.execute("SELECT * FROM comics WHERE Image_Path = %s", (db_filename,))
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        return result
-    except Exception as e:
-        print(f"⚠️ Database error: {e}")
-        return None
 
 # -------------------- Search Route (POST) --------------------
 @app.route("/search", methods=["POST"])
@@ -172,35 +162,36 @@ def search():
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(file_path)
 
-    # Extract features from the uploaded image
     features = extract_features(file_path)
     if features is None:
         return jsonify([])
 
-    # Perform FAISS search
     results = search_faiss(features)
-
     if not results:
         return jsonify([])
 
-    # Process best match and near-identical results
-    best_result = results[0]
-    near_identical_threshold = 0.12  # Loosened slightly for mobile
-    additional_delta = 0.05         # Additional tolerance for phone images
-
-    if best_result[1] < near_identical_threshold:
-        filtered_results = [res for res in results if abs(res[1] - best_result[1]) <= additional_delta]
-        results = filtered_results if filtered_results else [best_result]
-    else:
-        results = [best_result]
-
-    # Fetch details from DB
+    # Always return only the top (first) match.
+    results = [results[0]]
     response_data = []
     for file_name, distance in results:
-        comic_info = get_comic_details(file_name)
+        comic_info = metadata_dict.get(file_name)
         if comic_info:
-            comic_info["distance"] = distance
-            response_data.append(comic_info)
+            # If comic_info is a dict, we assume it already contains the keys the client expects.
+            if isinstance(comic_info, dict):
+                comic_info["distance"] = distance
+                # Ensure the key "Image_Path" exists.
+                if "Image_Path" not in comic_info:
+                    comic_info["Image_Path"] = f"images/{file_name}"
+                response_data.append(comic_info)
+            else:
+                # If comic_info is not a dict (e.g., a tuple), convert it to one with the needed fields.
+                response_data.append({
+                    "Image_Path": f"images/{file_name}",
+                    "Comic_Title": "",      # Fill with available data if any
+                    "Issue_Number": "",
+                    "Variant": "",
+                    "distance": distance
+                })
 
     print("🔍 FAISS Response Data:", response_data)
     return jsonify(response_data)

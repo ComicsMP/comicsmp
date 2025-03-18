@@ -21,7 +21,6 @@ function getFinalImagePath($rawPath) {
         return '/comicsmp/placeholder.jpg';
     }
     if (filter_var($raw, FILTER_VALIDATE_URL)) {
-        // Remove any double /images/images/ occurrences
         $raw = str_replace('/images/images/', '/images/', $raw);
         return $raw;
     }
@@ -168,7 +167,6 @@ $stmtUser->close();
 if (!$currency) {
     $currency = 'USD';
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -177,7 +175,7 @@ if (!$currency) {
   <title>Profile - Wanted, Selling & Matches</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
-    /* Basic sidebar styling */
+    /* Sidebar styling */
     .sidebar {
       width: 220px;
       background-color: #333;
@@ -195,6 +193,7 @@ if (!$currency) {
       margin-bottom: 0.5rem;
       padding: 0.5rem 0.8rem;
       border-radius: 4px;
+      cursor: pointer;
     }
     .sidebar .nav-link:hover,
     .sidebar .nav-link.active {
@@ -209,7 +208,57 @@ if (!$currency) {
       min-height: 100vh;
     }
 
-    /* Keep your existing cover styling, etc. */
+    /* Search Section in Main Content */
+    .search-card {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .search-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .search-input-container {
+      position: relative;
+    }
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid #ccc;
+      border-radius: 30px;
+      font-size: 1.1rem;
+      outline: none;
+      transition: border-color 0.3s ease;
+    }
+    .search-input:focus {
+      border-color: #007bff;
+    }
+    #searchSuggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    #searchSuggestions .suggestion-item {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      transition: background 0.2s ease;
+    }
+    #searchSuggestions .suggestion-item:hover {
+      background: #f1f1f1;
+    }
+
+    /* Existing cover and table styles (unchanged) */
     .cover-img {
       width: 150px;
       height: 225px;
@@ -301,40 +350,39 @@ if (!$currency) {
 </head>
 <body class="bg-light">
 <div class="d-flex">
-  <!-- BEGIN SIDEBAR -->
+  <!-- SIDEBAR NAVIGATION -->
   <div class="sidebar">
     <h2>ComicsMP</h2>
     <nav class="nav flex-column">
-      <!-- These links trigger the Bootstrap tabs below via data-bs-target -->
+      <!-- Note: Added Search as a link -->
+      <a class="nav-link" href="#search" data-bs-toggle="tab">Search</a>
       <a class="nav-link active" href="#wanted" data-bs-toggle="tab">Wanted List</a>
       <a class="nav-link" href="#selling" data-bs-toggle="tab">Comics for Sale</a>
       <a class="nav-link" href="#matches" data-bs-toggle="tab">Matches</a>
     </nav>
   </div>
-  <!-- END SIDEBAR -->
-
-  <!-- BEGIN MAIN CONTENT -->
+  
+  <!-- MAIN CONTENT AREA -->
   <div class="main-content">
     <h1>Profile</h1>
-
-    <!-- (Optional) Top Nav Tabs (Can remove if you only want sidebar) -->
-    <ul class="nav nav-tabs d-none" id="profileTab" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="wanted-tab" data-bs-toggle="tab" data-bs-target="#wanted" type="button" role="tab" aria-controls="wanted" aria-selected="true">Wanted List</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="selling-tab" data-bs-toggle="tab" data-bs-target="#selling" type="button" role="tab" aria-controls="selling" aria-selected="false">Comics for Sale</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="matches-tab" data-bs-toggle="tab" data-bs-target="#matches" type="button" role="tab" aria-controls="matches" aria-selected="false">Matches</button>
-      </li>
-    </ul>
-    <!-- End optional top nav -->
-
     <!-- Tab Panes -->
     <div class="tab-content" id="profileTabContent">
-      <!-- Wanted List Tab -->
-      <div class="tab-pane fade show active" id="wanted" role="tabpanel" aria-labelledby="wanted-tab">
+      <!-- SEARCH TAB -->
+      <div class="tab-pane fade" id="search" role="tabpanel">
+        <div class="search-card">
+          <h2>Search Comics</h2>
+          <div class="search-input-container">
+            <input type="text" id="comicSearch" class="search-input" placeholder="Type comic title here..." autocomplete="off">
+            <div id="searchSuggestions"></div>
+          </div>
+          <div id="searchResults" class="mt-4">
+            <!-- Results from searchResults.php will be loaded here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- WANTED TAB -->
+      <div class="tab-pane fade show active" id="wanted" role="tabpanel">
         <h2 class="mt-4">My Wanted Comics</h2>
         <?php if (empty($wantedSeries)): ?>
           <p>No wanted items found.</p>
@@ -369,7 +417,7 @@ if (!$currency) {
                 <tr class="expand-row" id="expand-<?php echo $index; ?>" style="display:none;">
                   <td colspan="5">
                     <div class="cover-container" id="covers-<?php echo $index; ?>">
-                      <!-- Wanted covers via AJAX -->
+                      <!-- Wanted covers loaded via AJAX -->
                     </div>
                   </td>
                 </tr>
@@ -378,9 +426,9 @@ if (!$currency) {
           </table>
         <?php endif; ?>
       </div>
-
-      <!-- Comics for Sale Tab -->
-      <div class="tab-pane fade" id="selling" role="tabpanel" aria-labelledby="selling-tab">
+      
+      <!-- COMICS FOR SALE TAB -->
+      <div class="tab-pane fade" id="selling" role="tabpanel">
         <h2 class="mt-4">Comics for Sale</h2>
         <?php if (empty($saleGroups)): ?>
           <p>No comics listed for sale.</p>
@@ -421,7 +469,7 @@ if (!$currency) {
                       Bulk Edit Series
                     </button>
                     <div class="cover-container" id="sale-covers-<?php echo $index; ?>">
-                      <!-- Sale covers via AJAX -->
+                      <!-- Sale covers loaded via AJAX -->
                     </div>
                   </td>
                 </tr>
@@ -430,9 +478,9 @@ if (!$currency) {
           </table>
         <?php endif; ?>
       </div>
-
-      <!-- Matches Tab -->
-      <div class="tab-pane fade" id="matches" role="tabpanel" aria-labelledby="matches-tab">
+      
+      <!-- MATCHES TAB -->
+      <div class="tab-pane fade" id="matches" role="tabpanel">
         <h2 class="mt-4">Your Matches</h2>
         <?php if (empty($groupedMatches)): ?>
           <p>No matches found at this time.</p>
@@ -448,7 +496,7 @@ if (!$currency) {
             </thead>
             <tbody>
               <?php foreach ($groupedMatches as $otherUserId => $matchesArray):
-                    $displayName = $userNamesMap[$otherUserId] ?? ('User #'.$otherUserId);
+                      $displayName = $userNamesMap[$otherUserId] ?? ('User #'.$otherUserId);
               ?>
                 <tr class="match-main-row" data-index="<?php echo $otherUserId; ?>">
                   <td><?php echo htmlspecialchars($displayName); ?></td>
@@ -470,7 +518,7 @@ if (!$currency) {
                 </tr>
                 <tr class="expand-match-row" id="expand-match-<?php echo $otherUserId; ?>" style="display:none;">
                   <td colspan="4">
-                    <?php
+                    <?php 
                       $buyMatches = array_filter($matchesArray, function($m) use ($user_id) {
                           return $m['buyer_id'] == $user_id;
                       });
@@ -575,6 +623,7 @@ if (!$currency) {
   <!-- END MAIN CONTENT -->
 </div>
 
+<!-- Modals -->
 <!-- Edit Sale Listing Modal -->
 <div class="modal fade" id="editSaleModal" tabindex="-1" aria-labelledby="editSaleModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -701,7 +750,7 @@ if (!$currency) {
   </div>
 </div>
 
-<!-- Profile Modal for Cover Image (Similar Issues section removed) -->
+<!-- Profile Modal for Cover Image -->
 <div class="modal fade" id="profileImageModal" tabindex="-1" aria-labelledby="profilePopupModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -752,7 +801,6 @@ if (!$currency) {
               <td id="popupPrice"></td>
             </tr>
           </table>
-          <!-- Similar issues section removed -->
         </div>
       </div>
     </div>
@@ -769,17 +817,13 @@ if (!$currency) {
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <!-- Hidden recipient field -->
           <input type="hidden" name="recipient_id" id="recipient_id" value="">
-          <!-- Display recipient information -->
           <div id="messageInfo" class="mb-3">
             <p>You're messaging <strong id="recipientName"></strong> about your matched comics.</p>
           </div>
-          <!-- Container where matched comics will be listed as checkboxes, divided into groups -->
           <div id="matchComicSelection" class="mb-3">
-            <!-- Populated dynamically -->
+            <!-- Matched comics checkboxes will be loaded dynamically -->
           </div>
-          <!-- Message Preview Textarea -->
           <div class="mb-3">
             <label for="messagePreview" class="form-label">Message Preview</label>
             <textarea id="messagePreview" name="message" class="form-control" rows="5"></textarea>
@@ -799,7 +843,7 @@ if (!$currency) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
-  // JavaScript helper to mimic PHP's getFinalImagePath logic
+  // Helper to mimic PHP's getFinalImagePath logic in JS
   function getFinalImagePathJS(raw) {
     raw = raw ? raw.trim() : '';
     if (!raw || raw.toLowerCase() === 'null') {
@@ -824,16 +868,56 @@ if (!$currency) {
     }
     return raw;
   }
-
-  // Set current user ID and currency from PHP
+  
   var currentUserId = <?php echo json_encode($user_id); ?>;
   var userCurrency = <?php echo json_encode($currency); ?>;
-  
-  // Global variable to hold current matches for the modal
   var currentMatches = [];
   
-  // --- Update Matches via AJAX --- 
-  // This call runs update_matches.php after window load to update match notifications.
+  // --- SEARCH FUNCTIONALITY IN THE SEARCH TAB ---
+  function performProfileSearch() {
+    var searchVal = $("#comicSearch").val();
+    if(searchVal.length < 3) {
+      $("#searchSuggestions").empty();
+      return;
+    }
+    $.ajax({
+      url: "suggest.php",
+      method: "GET",
+      data: { q: searchVal },
+      success: function(data) {
+        $("#searchSuggestions").html(data);
+      },
+      error: function() {
+        $("#searchSuggestions").html("<p class='text-danger'>No suggestions available.</p>");
+      }
+    });
+  }
+  
+  var searchRequest = null;
+  $("#comicSearch").on("input", function() {
+    if(searchRequest) { searchRequest.abort(); }
+    performProfileSearch();
+  });
+  
+  $(document).on("click", "#searchSuggestions .suggestion-item", function() {
+    var title = $(this).text();
+    $("#comicSearch").val(title);
+    $("#searchSuggestions").empty();
+    // For testing, trigger a search result load via AJAX
+    $.ajax({
+      url: "searchResults.php",
+      method: "GET",
+      data: { comic_title: title },
+      success: function(html) {
+        $("#searchResults").html(html);
+      },
+      error: function() {
+        $("#searchResults").html("<p class='text-danger'>Error loading search results.</p>");
+      }
+    });
+  });
+  
+  // --- UPDATE MATCHES VIA AJAX ---
   $(window).on('load', function(){
     setTimeout(function(){
       $.ajax({
@@ -844,16 +928,10 @@ if (!$currency) {
           console.log("Update matches response:", response);
           var inserted = 0, deleted = 0;
           var matchmakerMatch = response.match(/(\d+)\s+matches inserted/i);
-          if(matchmakerMatch){
-            inserted = parseInt(matchmakerMatch[1]);
-          }
+          if(matchmakerMatch){ inserted = parseInt(matchmakerMatch[1]); }
           var cleanupMatch = response.match(/(\d+)\s+match notifications deleted/i);
-          if(cleanupMatch){
-            deleted = parseInt(cleanupMatch[1]);
-          }
-          if(inserted > 0 || deleted > 0){
-            location.reload();
-          }
+          if(cleanupMatch){ deleted = parseInt(cleanupMatch[1]); }
+          if(inserted > 0 || deleted > 0){ location.reload(); }
         },
         error: function(xhr, status, error) {
           console.error("Update matches error:", error);
@@ -863,11 +941,10 @@ if (!$currency) {
   });
   
   $(document).ready(function(){
-    if (window.location.hash === "#selling") {
-      $('#selling-tab').tab('show');
-    }
-  
-    // Expand for Wanted List
+    if (window.location.hash === "#selling") { $('#selling-tab').tab('show'); }
+    
+    // --- Existing functionality remains below ---
+    // Expand Wanted List covers
     $('#wantedTable').on("click", ".expand-btn", function (e) {
       e.stopPropagation();
       var btn = $(this);
@@ -893,8 +970,8 @@ if (!$currency) {
         }
       });
     });
-  
-    // Expand for Sales List
+    
+    // Expand Sales List covers
     $('#sellingTable').on("click", ".sale-expand-btn", function (e) {
       e.stopPropagation();
       var btn = $(this);
@@ -920,7 +997,7 @@ if (!$currency) {
         }
       });
     });
-  
+    
     // Delete sale entry
     $(document).on("click", ".remove-sale", function () {
       var button = $(this);
@@ -943,7 +1020,7 @@ if (!$currency) {
         });
       }
     });
-  
+    
     // Delete wanted entry
     $(document).off("click", ".remove-cover").on("click", ".remove-cover", function(e) {
       e.preventDefault();
@@ -966,13 +1043,13 @@ if (!$currency) {
               alert(response.message);
             }
           },
-          error: function() {
+          error: function () {
             alert("Failed to delete the wanted listing.");
           }
         });
       }
     });
-  
+    
     // Edit sale (single) - open modal
     $(document).on("click", ".edit-sale", function (e) {
       e.preventDefault();
@@ -989,7 +1066,7 @@ if (!$currency) {
       var editModal = new bootstrap.Modal(document.getElementById('editSaleModal'));
       editModal.show();
     });
-  
+    
     // Bulk edit series - open modal
     $(document).on("click", ".bulk-edit-btn", function (e) {
       e.preventDefault();
@@ -1002,7 +1079,7 @@ if (!$currency) {
       var bulkEditModal = new bootstrap.Modal(document.getElementById('bulkEditSaleModal'));
       bulkEditModal.show();
     });
-  
+    
     // Submit single edit form
     $("#editSaleForm").on("submit", function (e) {
       e.preventDefault();
@@ -1025,7 +1102,7 @@ if (!$currency) {
         }
       });
     });
-  
+    
     // Submit bulk edit form
     $("#bulkEditSaleForm").on("submit", function (e) {
       e.preventDefault();
@@ -1048,8 +1125,8 @@ if (!$currency) {
         }
       });
     });
-  
-    // Matches tab: Expand for grouped matches
+    
+    // Matches tab: Expand grouped matches
     $(document).on("click", ".expand-match-btn", function() {
       var otherUserId = $(this).data("other-user-id");
       var rowSelector = "#expand-match-" + otherUserId;
@@ -1059,25 +1136,17 @@ if (!$currency) {
         $(rowSelector).slideDown();
       }
     });
-  
-    // Popup Modal for cover images (Wanted/Sale)
+    
+    // Popup Modal for cover images (Wanted/Sale covers)
     $(document).on("click", ".cover-img", function (e) {
-      if ($(e.target).is("button") || $(e.target).closest("button").length > 0) {
-          return;
-      }
+      if ($(e.target).is("button") || $(e.target).closest("button").length > 0) { return; }
       var $wrapper = $(this).closest(".cover-wrapper");
       var containerId = $wrapper.closest(".cover-container").attr("id") || "";
-      
       if (containerId.indexOf("sale-covers-") === 0) {
-          $("#popupConditionRow").show();
-          $("#popupGradedRow").show();
-          $("#popupPriceRow").show();
+        $("#popupConditionRow, #popupGradedRow, #popupPriceRow").show();
       } else {
-          $("#popupConditionRow").hide();
-          $("#popupGradedRow").hide();
-          $("#popupPriceRow").hide();
+        $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
       }
-      
       var src = $(this).attr("src");
       var comicTitle = $wrapper.data("comic-title") || "N/A";
       var years = $wrapper.data("years") || "N/A";
@@ -1103,14 +1172,11 @@ if (!$currency) {
       var modal = new bootstrap.Modal(document.getElementById("profileImageModal"));
       modal.show();
     });
-  
+    
     // Popup Modal for match cover images (Matches Tab)
     $(document).on("click", ".match-cover-img", function(e) {
       e.preventDefault();
-      $("#popupConditionRow").show();
-      $("#popupGradedRow").show();
-      $("#popupPriceRow").show();
-      
+      $("#popupConditionRow, #popupGradedRow, #popupPriceRow").show();
       var $img = $(this);
       var src = $img.attr("src");
       var context = $img.data("context");
@@ -1137,12 +1203,8 @@ if (!$currency) {
         url: "getUsername.php",
         method: "GET",
         data: { user_id: otherUserId },
-        success: function(username) {
-          // No heading update needed.
-        },
-        error: function(){
-          // Do nothing.
-        }
+        success: function(username) { },
+        error: function(){ }
       });
       
       $.ajax({
@@ -1154,15 +1216,9 @@ if (!$currency) {
           $("#popupTab").text(data.Tab || "N/A");
           $("#popupVariant").text(data.Variant || "N/A");
           $("#popupDate").text(data.Date || "N/A");
-          if(data.comic_condition) {
-            $("#popupCondition").text(data.comic_condition);
-          }
-          if(data.graded) {
-            $("#popupGraded").text(data.graded);
-          }
-          if(data.price) {
-            $("#popupPrice").text(data.price);
-          }
+          if(data.comic_condition) { $("#popupCondition").text(data.comic_condition); }
+          if(data.graded) { $("#popupGraded").text(data.graded); }
+          if(data.price) { $("#popupPrice").text(data.price); }
         },
         error: function() {
           $("#popupTab").text("N/A");
@@ -1174,16 +1230,14 @@ if (!$currency) {
       var modal = new bootstrap.Modal(document.getElementById("profileImageModal"));
       modal.show();
     });
-  
-    // Allow opening the large image in a new tab
+    
+    // Open large image in new tab
     $(document).on("click", "#popupMainImage", function() {
       var src = $(this).attr("src");
-      if(src) {
-        window.open(src, '_blank');
-      }
+      if(src) { window.open(src, '_blank'); }
     });
-  
-    // --- Improved Send Message Modal from Matches ---
+    
+    // Send Message Modal for Matches
     $(document).on("click", ".send-message-btn", function(e) {
       var recipientId = $(this).data("other-user-id");
       var recipientName = $(this).data("other-username");
@@ -1191,120 +1245,62 @@ if (!$currency) {
       $("#recipientName").text(recipientName);
       var matchesData = $(this).data("matches");
       var matchesArray = (typeof matchesData === "string") ? JSON.parse(matchesData) : matchesData;
-      currentMatches = matchesArray; // store globally
-  
-      // Separate matches into groups: For Sale (when current user is buyer) and Wanted (when current user is seller)
-      var forSaleMatches = [];
-      var wantedMatches = [];
-      for (var i = 0; i < matchesArray.length; i++) {
-        var match = matchesArray[i];
-        if (parseInt(match.buyer_id) === parseInt(currentUserId)) {
-           forSaleMatches.push({match: match, index: i});
-        } else if (parseInt(match.seller_id) === parseInt(currentUserId)) {
-           wantedMatches.push({match: match, index: i});
-        }
-      }
+      currentMatches = matchesArray;
   
       var html = "";
-      if (forSaleMatches.length > 0) {
-        html += "<h6>Comics For Sale from " + recipientName + ":</h6>";
-        forSaleMatches.forEach(function(item) {
-           var idx = item.index;
-           var match = item.match;
-           var imagePath = getFinalImagePathJS(match.cover_image);
-           var issueNum = match.issue_number ? match.issue_number.replace(/^#+/, '') : '';
-           html += '<div class="form-check mb-2 d-flex align-items-start" style="gap: 10px;">';
-           html += '<input class="form-check-input mt-1 match-checkbox" type="checkbox" value="'+ idx +'" id="match_'+idx+'">';
-           html += '<label class="form-check-label d-flex align-items-center" for="match_'+idx+'" style="gap:10px;">';
-           html += '<img src="'+ imagePath +'" alt="Cover" style="width:50px; height:75px; object-fit:cover;">';
-           html += '<span>';
-           html += match.comic_title + " (" + match.years + ") Issue #" + issueNum;
-           if(match.comic_condition) {
-              html += " (Condition: " + match.comic_condition + ")";
-           }
-           if(match.price) {
-              var priceVal = parseFloat(match.price);
-              var priceFormatted = "$" + priceVal.toFixed(2) + " " + (match.currency ? match.currency : (userCurrency ? userCurrency : "USD"));
-              html += " (Price: " + priceFormatted + ")";
-           }
-           html += '</span></label></div>';
-        });
-      }
-      if (wantedMatches.length > 0) {
-        html += "<h6>Comics Wanted by " + recipientName + ":</h6>";
-        wantedMatches.forEach(function(item) {
-           var idx = item.index;
-           var match = item.match;
-           var imagePath = getFinalImagePathJS(match.cover_image);
-           var issueNum = match.issue_number ? match.issue_number.replace(/^#+/, '') : '';
-           html += '<div class="form-check mb-2 d-flex align-items-start" style="gap: 10px;">';
-           html += '<input class="form-check-input mt-1 match-checkbox" type="checkbox" value="'+ idx +'" id="match_'+idx+'">';
-           html += '<label class="form-check-label d-flex align-items-center" for="match_'+idx+'" style="gap:10px;">';
-           html += '<img src="'+ imagePath +'" alt="Cover" style="width:50px; height:75px; object-fit:cover;">';
-           html += '<span>';
-           html += match.comic_title + " (" + match.years + ") Issue #" + issueNum;
-           if(match.comic_condition) {
-              html += " (Condition: " + match.comic_condition + ")";
-           }
-           if(match.price) {
-              var priceVal = parseFloat(match.price);
-              var priceFormatted = "$" + priceVal.toFixed(2) + " " + (match.currency ? match.currency : (userCurrency ? userCurrency : "USD"));
-              html += " (Price: " + priceFormatted + ")";
-           }
-           html += '</span></label></div>';
+      if (matchesArray.length) {
+        matchesArray.forEach(function(match, idx) {
+          var issueNum = match.issue_number ? match.issue_number.replace(/^#+/, '') : '';
+          var line = '<div class="form-check mb-2 d-flex align-items-start" style="gap: 10px;">';
+          line += '<input class="form-check-input mt-1 match-checkbox" type="checkbox" value="'+ idx +'" id="match_'+idx+'">';
+          line += '<label class="form-check-label d-flex align-items-center" for="match_'+idx+'" style="gap: 10px;">';
+          line += '<img src="'+ getFinalImagePathJS(match.cover_image) +'" alt="Cover" style="width:50px; height:75px; object-fit:cover;">';
+          line += '<span>'+ match.comic_title + " (" + match.years + ") Issue #" + issueNum;
+          if(match.comic_condition) { line += " (Condition: " + match.comic_condition + ")"; }
+          if(match.price) { 
+            var priceVal = parseFloat(match.price);
+            var priceFormatted = "$" + priceVal.toFixed(2) + " " + (match.currency ? match.currency : (userCurrency ? userCurrency : "USD"));
+            line += " (Price: " + priceFormatted + ")";
+          }
+          line += '</span></label></div>';
+          html += line;
         });
       }
       $("#matchComicSelection").html(html);
-  
-      // Update message preview initially
       updateMessagePreview();
-  
       var sendModal = new bootstrap.Modal(document.getElementById("sendMessageModal"));
       sendModal.show();
     });
-  
-    // Update message preview based on selected checkboxes
+    
     function updateMessagePreview() {
       var forSaleText = "";
       var wantedText = "";
       $("#matchComicSelection input.match-checkbox:checked").each(function(){
-           var idx = $(this).val();
-           var match = currentMatches[idx];
-           var issueNum = match.issue_number ? match.issue_number.replace(/^#+/, '') : '';
-           var line = "- " + match.comic_title + " (" + match.years + ") Issue #" + issueNum;
-           if(match.comic_condition) {
-              line += " (Condition: " + match.comic_condition + ")";
-           }
-           if(match.price) {
-              var priceVal = parseFloat(match.price);
-              var priceFormatted = "$" + priceVal.toFixed(2) + " " + (match.currency ? match.currency : (userCurrency ? userCurrency : "USD"));
-              line += " (Price: " + priceFormatted + ")";
-           }
-           line += "\n";
-           if (parseInt(match.buyer_id) === parseInt(currentUserId)) {
-              forSaleText += line;
-           } else if (parseInt(match.seller_id) === parseInt(currentUserId)) {
-              wantedText += line;
-           }
+        var idx = $(this).val();
+        var match = currentMatches[idx];
+        var issueNum = match.issue_number ? match.issue_number.replace(/^#+/, '') : '';
+        var line = "- " + match.comic_title + " (" + match.years + ") Issue #" + issueNum;
+        if(match.comic_condition) { line += " (Condition: " + match.comic_condition + ")"; }
+        if(match.price) {
+          var priceVal = parseFloat(match.price);
+          line += " (Price: $" + priceVal.toFixed(2) + " " + (match.currency ? match.currency : (userCurrency ? userCurrency : "USD")) + ")";
+        }
+        line += "\n";
+        if (parseInt(match.buyer_id) === parseInt(currentUserId)) { forSaleText += line; }
+        else if (parseInt(match.seller_id) === parseInt(currentUserId)) { wantedText += line; }
       });
       var recipientName = $("#recipientName").text() || "there";
       var messageText = "Hi " + recipientName + ",\n\n";
-      if (forSaleText) {
-         messageText += "I'm interested in buying the following comics:\n" + forSaleText + "\n";
-      }
-      if (wantedText) {
-         messageText += "I'm interested in selling the following comics:\n" + wantedText + "\n";
-      }
+      if (forSaleText) { messageText += "I'm interested in buying the following comics:\n" + forSaleText + "\n"; }
+      if (wantedText) { messageText += "I'm interested in selling the following comics:\n" + wantedText + "\n"; }
       messageText += "Please let me know if you're interested.";
       $("#messagePreview").val(messageText);
     }
-  
-    // When any checkbox changes, update message preview
+    
     $(document).on("change", "#matchComicSelection input.match-checkbox", function() {
-        updateMessagePreview();
+      updateMessagePreview();
     });
-  
-    // Handle Send Message Form submission
+    
     $("#sendMessageForm").on("submit", function(e) {
       e.preventDefault();
       var formData = $(this).serialize();
@@ -1314,19 +1310,19 @@ if (!$currency) {
         data: formData,
         dataType: "json",
         success: function(response) {
-            if (response.status === 'success') {
-                alert("Message sent successfully.");
-                $("#sendMessageModal").modal("hide");
-            } else {
-                alert(response.message);
-            }
+          if (response.status === 'success') {
+            alert("Message sent successfully.");
+            $("#sendMessageModal").modal("hide");
+          } else {
+            alert(response.message);
+          }
         },
         error: function() {
-            alert("Failed to send message.");
+          alert("Failed to send message.");
         }
       });
     });
-  }); // end document ready
+  });
 </script>
 </body>
 </html>

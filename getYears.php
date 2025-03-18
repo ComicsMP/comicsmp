@@ -1,14 +1,27 @@
 <?php
 require_once 'db_connection.php';
 
-$title = $_GET['comic_title'] ?? '';
-if (!$title) { exit; }
+$title   = $_GET['comic_title'] ?? '';
+$country = $_GET['country'] ?? ''; // new: country parameter
 
-$sql = "SELECT DISTINCT Years FROM Comics 
-        WHERE Comic_Title = ?
-        ORDER BY Years ASC";
+if (!$title) {
+    exit;
+}
+
+$sql = "SELECT DISTINCT Years FROM Comics WHERE Comic_Title = ?";
+$params = [$title];
+$types  = "s";
+
+if ($country) {
+    $sql .= " AND Country = ?";
+    $params[] = $country;
+    $types   .= "s";
+}
+
+$sql .= " ORDER BY Years ASC";
+
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $title);
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 $res = $stmt->get_result();
 

@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once 'db_connection.php';
+
+// Query distinct countries from the comics table
+$query = "SELECT DISTINCT Country FROM comics ORDER BY Country ASC";
+$result = mysqli_query($conn, $query);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,10 +48,18 @@ require_once 'db_connection.php';
       border: 1px solid #ddd;
       border-top: none;
       border-radius: 0 0 5px 5px;
+      box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
+      max-height: 300px;
+      overflow-y: auto;
     }
     #suggestions .suggestion-item {
-      padding: 0.5rem;
+      padding: 0.75rem;
       cursor: pointer;
+      transition: background-color 0.2s ease;
+      border-bottom: 1px solid #eee;
+    }
+    #suggestions .suggestion-item:last-child {
+      border-bottom: none;
     }
     #suggestions .suggestion-item:hover {
       background-color: #f1f1f1;
@@ -114,7 +126,7 @@ require_once 'db_connection.php';
     .popup-image-container {
       flex: 0 0 40%;
       display: flex;
-      align-items: flex-start; /* This keeps the image at the top */
+      align-items: flex-start;
       justify-content: center;
     }
     .popup-image-container img {
@@ -162,9 +174,23 @@ require_once 'db_connection.php';
   <div class="search-card shadow-sm">
     <div class="card-header text-center">Search Comics</div>
     <div class="card-body">
-      <!-- Top Row: Comic Title Input & Filter Mode Buttons -->
+      <!-- Top Row: Country Dropdown, Comic Title Input & Filter Mode Buttons -->
       <div class="row align-items-end">
-        <div class="col-md-8 search-input-container">
+        <div class="col-md-3">
+          <label for="countrySelect" class="form-label">Country</label>
+          <select id="countrySelect" class="form-select">
+            <?php
+              if ($result) {
+                while ($row = mysqli_fetch_assoc($result)) {
+                  $country = $row['Country'];
+                  $selected = ($country == "USA") ? "selected" : "";
+                  echo "<option value=\"$country\" $selected>$country</option>";
+                }
+              }
+            ?>
+          </select>
+        </div>
+        <div class="col-md-5 search-input-container">
           <label for="comicTitle" class="form-label">Comic Title</label>
           <input type="text" id="comicTitle" class="form-control" placeholder="Start typing..." autocomplete="off">
           <div id="suggestions"></div>
@@ -172,10 +198,9 @@ require_once 'db_connection.php';
         <div class="col-md-4">
           <label class="form-label">Filter</label>
           <div class="btn-group w-100" role="group" id="searchModeGroup">
-            <button type="button" class="btn btn-outline-primary search-mode active" data-mode="allWords">All Words</button>
+            <button type="button" class="btn btn-outline-primary search-mode" data-mode="allWords">All Words</button>
             <button type="button" class="btn btn-outline-primary search-mode" data-mode="anyWords">Any Words</button>
-            <button type="button" class="btn btn-outline-primary search-mode" data-mode="startsWith">Starts With</button>
-            <button type="button" class="btn btn-outline-primary search-mode" data-mode="exactPhrase">Exact</button>
+            <button type="button" class="btn btn-outline-primary search-mode active" data-mode="startsWith">Starts With</button>
           </div>
         </div>
       </div>
@@ -184,30 +209,34 @@ require_once 'db_connection.php';
       <div class="filter-controls mt-3" id="filterRow" style="display: none;">
         <div>
           <label for="yearSelect" class="form-label">Year</label>
-          <select id="yearSelect" class="form-select"></select>
+          <select id="yearSelect" class="form-select">
+            <option value="">Select a year</option>
+          </select>
         </div>
         <div>
           <label for="tabSelect" class="form-label">Tab</label>
           <select id="tabSelect" class="form-select">
-            <option value="All">All</option>
+            <option value="All" selected>All</option>
             <option value="Issues">Issues</option>
+            <!-- other tab options will be loaded dynamically based on the selected year -->
           </select>
         </div>
-        <div>
-          <label for="issueSelect" class="form-label">Issue</label>
-          <select id="issueSelect" class="form-select"></select>
+        <!-- Wrap the Number field in its own container (only for Issues) -->
+        <div id="issueCol" style="display: none;">
+          <label for="issueSelect" class="form-label">Number</label>
+          <select id="issueSelect" class="form-select">
+            <option value="All">All</option>
+          </select>
         </div>
-        <div class="d-flex align-items-center">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="variantCheckbox" value="1">
-            <label class="form-check-label" for="variantCheckbox">Include Variants</label>
+        <!-- Variants toggle (only visible when Tab is not All) -->
+        <div id="variantDiv">
+          <label class="form-label">Variants</label>
+          <div>
+            <button type="button" class="btn btn-outline-primary" id="variantToggle" data-enabled="0">Include Variants</button>
           </div>
         </div>
       </div>
-      
-      <div class="mt-3">
-        <button id="searchButton" class="btn btn-primary w-100">Search</button>
-      </div>
+      <!-- (Search button removed – live updates occur automatically) -->
     </div>
   </div>
   <!-- End Search Card -->
@@ -284,7 +313,6 @@ require_once 'db_connection.php';
               <th>UPC:</th>
               <td id="popupUPC"></td>
             </tr>
-
           </table>
           <div class="similar-issues">
             <h6>Similar Issues</h6>
@@ -301,89 +329,21 @@ require_once 'db_connection.php';
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  let searchMode = "allWords"; // default
+  let searchMode = "startsWith";
+  let autoSuggestRequest = null; // Holds current auto-suggest AJAX request
 
-  // SEARCH MODE BUTTONS
-  $(".search-mode").on("click", function() {
-    $(".search-mode").removeClass("active");
-    $(this).addClass("active");
-    searchMode = $(this).data("mode");
-  });
-
-  // AUTO-SUGGEST
-  $("#comicTitle").on("input", function() {
-    const val = $(this).val();
-    if (val.length > 2) {
-      $.ajax({
-        url: "suggest.php",
-        method: "GET",
-        data: { q: val, mode: searchMode },
-        success: function(data) {
-          $("#suggestions").html(data);
-        },
-        error: function() {
-          $("#suggestions").html("<p class='text-danger'>No suggestions available.</p>");
-        }
-      });
-    } else {
-      $("#suggestions").html("");
-    }
-  });
-
-  $(document).on("click", ".suggestion-item", function() {
-    const title = $(this).text();
-    $("#comicTitle").val(title);
-    $("#suggestions").html("");
-    $.get("getYears.php", { comic_title: title }, function(data) {
-      $("#yearSelect").html(data);
-    });
-    $.get("getTabs.php", { comic_title: title }, function(data) {
-      $("#tabSelect").html(data);
-    });
-    $("#filterRow").show();
-  });
-
-  // FILTERING
-  $("#tabSelect").on("change", function() {
-    if ($(this).val() === "Issues") {
-      $("#issueCol").show();
-      loadMainIssues();
-    } else {
-      $("#issueCol").hide();
-      $("#issueSelect").html("");
-    }
-  });
-
-  function loadMainIssues() {
-    const comicTitle = $("#comicTitle").val();
-    const year = $("#yearSelect").val();
-    const params = { comic_title: comicTitle, only_main: 1, include_variants: 0, year: year };
-    $.get("getIssues.php", params, function(data) {
-      $("#issueSelect").html(data);
-    });
-  }
-
-  $("#variantCheckbox").on("change", function() {
-    const comicTitle = $("#comicTitle").val();
-    const year = $("#yearSelect").val();
-    const includeVariants = $(this).is(":checked") ? 1 : 0;
-    const params = { comic_title: comicTitle, include_variants: includeVariants, year: year };
-    $.get("getIssues.php", params, function(data) {
-      $("#issueSelect").html(data);
-    });
-  });
-
-  // SEARCH RESULTS
-  $("#searchButton").on("click", function() {
+  // Function to perform live search
+  function performSearch() {
     const comicTitle = $("#comicTitle").val();
     const year = $("#yearSelect").val();
     const params = {
       comic_title: comicTitle,
       tab: $("#tabSelect").val(),
       issue_number: $("#issueSelect").val(),
-      include_variants: $("#variantCheckbox").is(":checked") ? 1 : 0,
+      include_variants: $("#variantToggle").attr("data-enabled") === "1" ? 1 : 0,
       mode: searchMode,
-      year: year
+      year: year,
+      country: $("#countrySelect").val()
     };
     $.ajax({
       url: "searchResults.php",
@@ -393,44 +353,27 @@ document.addEventListener("DOMContentLoaded", () => {
         $("#resultsGallery").html(html);
         $(".gallery-item").each(function() {
           const $item = $(this);
-          // Remove any existing button wrapper so we can re-inject
           $item.find(".button-wrapper").remove();
-          // Remove any pre-existing issue-info inserted by previous runs
           $item.find(".issue-info").remove();
           const comicTitle = $item.data("comic-title");
           const issueNumber = $item.data("issue-number");
           const seriesYear = $item.data("years");
           const issueUrl = $item.data("issue_url");
-          // Instead of inserting duplicate issue info, assume searchResults.php already shows "Issue: #1"
-          // Set the data-date attribute from a hidden .issue-date element (if available)
           const date = $item.attr("data-date") || "N/A";
           $item.attr("data-date", date);
           
-          let wantedBtn = $(`
-            <button class="btn btn-primary add-to-wanted me-2 mb-2" style="margin-right:5px;">
-              Wanted
-            </button>
-          `)
+          let wantedBtn = $(`<button class="btn btn-primary add-to-wanted me-2 mb-2" style="margin-right:5px;">Wanted</button>`)
             .attr("data-series-name", comicTitle)
             .attr("data-issue-number", issueNumber)
             .attr("data-series-year", seriesYear)
             .attr("data-issue-url", issueUrl);
           if ($item.data("wanted") == 1) {
-            wantedBtn = $(`
-              <button class="btn btn-success add-to-wanted me-2 mb-2" style="margin-right:5px;" disabled>
-                Added
-              </button>
-            `);
+            wantedBtn = $(`<button class="btn btn-success add-to-wanted me-2 mb-2" style="margin-right:5px;" disabled>Added</button>`);
           }
-          let sellBtn = $(`
-            <button class="btn btn-secondary sell-button me-2 mb-2" style="margin-right:5px;">
-              Sell
-            </button>
-          `);
+          let sellBtn = $(`<button class="btn btn-secondary sell-button me-2 mb-2" style="margin-right:5px;">Sell</button>`);
           const buttonWrapper = $('<div class="button-wrapper"></div>');
           buttonWrapper.append(wantedBtn).append(sellBtn);
           $item.append(buttonWrapper);
-          // Remove any volume-info (years) display if present
           $item.find(".volume-info").remove();
           const sellFormHtml = `
             <div class="sell-form" style="display: none;">
@@ -492,9 +435,121 @@ document.addEventListener("DOMContentLoaded", () => {
         $("#resultsGallery").html("<p class='text-danger'>Error loading results.</p>");
       }
     });
+  }
+  
+  // SEARCH MODE BUTTONS
+  $(".search-mode").on("click", function() {
+    if (autoSuggestRequest) { autoSuggestRequest.abort(); }
+    $(".search-mode").removeClass("active");
+    $(this).addClass("active");
+    searchMode = $(this).data("mode");
+    $("#suggestions").html("");
+    performSearch();
   });
 
-  // ADD TO WANTED HANDLER in new.php
+  // AUTO-SUGGEST (including country in the request)
+  $("#comicTitle").on("input", function() {
+    const val = $(this).val();
+    if (val.length > 2) {
+      if (autoSuggestRequest) { autoSuggestRequest.abort(); }
+      autoSuggestRequest = $.ajax({
+        url: "suggest.php",
+        method: "GET",
+        data: { q: val, mode: searchMode, country: $("#countrySelect").val() },
+        success: function(data) { $("#suggestions").html(data); },
+        error: function() { $("#suggestions").html("<p class='text-danger'>No suggestions available.</p>"); },
+        complete: function() { autoSuggestRequest = null; }
+      });
+      performSearch();
+    } else {
+      $("#suggestions").html("");
+      $("#resultsGallery").html("");
+    }
+  });
+
+  $(document).on("click", ".suggestion-item", function() {
+    const title = $(this).text();
+    $("#comicTitle").val(title);
+    $("#suggestions").html("");
+    $.get("getYears.php", { comic_title: title, country: $("#countrySelect").val() }, function(data) {
+      $("#yearSelect").html('<option value="">Select a year</option>' + data);
+      performSearch();
+    });
+    // Load tabs based on comic title, country (and later selected year)
+    $.get("getTabs.php", { comic_title: title, country: $("#countrySelect").val() }, function(data) {
+      $("#tabSelect").html(data);
+      $("#tabSelect").val("All");
+      performSearch();
+    });
+    $("#filterRow").show();
+  });
+
+  // When year selection changes, update the tabs based on comic title, year, and country.
+  $("#yearSelect").on("change", function(){
+    performSearch();
+    const selectedYear = $(this).val();
+    const comicTitle = $("#comicTitle").val();
+    if(comicTitle && selectedYear){
+      $.get("getTabs.php", { comic_title: comicTitle, year: selectedYear, country: $("#countrySelect").val() }, function(data){
+        $("#tabSelect").html(data);
+        if($("#tabSelect option[value='All']").length > 0){
+          $("#tabSelect").val("All");
+        } else {
+          $("#tabSelect").prop("selectedIndex", 0);
+        }
+        performSearch();
+      });
+    }
+  });
+
+  // FILTERING for Tab and Country changes
+  $("#tabSelect, #countrySelect").on("change", function(){
+    if($("#tabSelect").val() === "Issues"){
+      $("#issueCol").show();
+      $("#variantDiv").show();
+      loadMainIssues();
+    } else {
+      $("#issueCol").hide();
+      $("#issueSelect").html("");
+      if($("#tabSelect").val() === "All"){
+        $("#variantDiv").hide();
+      } else {
+        $("#variantDiv").show();
+      }
+      performSearch();
+    }
+  });
+
+  $("#issueSelect").on("change", function(){ performSearch(); });
+
+  function loadMainIssues() {
+    const comicTitle = $("#comicTitle").val();
+    const year = $("#yearSelect").val();
+    const includeVariants = $("#variantToggle").attr("data-enabled") === "1" ? 1 : 0;
+    const params = { comic_title: comicTitle, only_main: 1, include_variants: includeVariants, year: year, country: $("#countrySelect").val() };
+    $.get("getIssues.php", params, function(data) {
+      $("#issueSelect").html(data);
+      performSearch();
+    });
+  }
+
+  // Toggle button for Include Variants
+  $("#variantToggle").on("click", function() {
+    let enabled = $(this).attr("data-enabled") === "1" ? 0 : 1;
+    $(this).attr("data-enabled", enabled);
+    if(enabled == 1){
+      $(this).removeClass("btn-outline-primary").addClass("btn-primary");
+    } else {
+      $(this).removeClass("btn-primary").addClass("btn-outline-primary");
+    }
+    if($("#tabSelect").val() === "Issues"){
+      loadMainIssues();
+    } else {
+      performSearch();
+    }
+  });
+
+  // ADD TO WANTED HANDLER
   $(document).on("click", ".add-to-wanted", function(e) {
     e.preventDefault();
     const btn = $(this);
@@ -512,9 +567,7 @@ document.addEventListener("DOMContentLoaded", () => {
       success: function(response) {
         btn.replaceWith('<button class="btn btn-success add-to-wanted me-2 mb-2" disabled>Added</button>');
       },
-      error: function() {
-        alert("Error adding comic to wanted list");
-      }
+      error: function() { alert("Error adding comic to wanted list"); }
     });
   });
 
@@ -534,39 +587,29 @@ document.addEventListener("DOMContentLoaded", () => {
       success: function(response) {
         form.closest(".sell-form").html('<div class="alert alert-success">Listed for Sale</div>');
       },
-      error: function() {
-        alert("Error listing comic for sale");
-      }
+      error: function() { alert("Error listing comic for sale"); }
     });
   });
 
   // Function to load similar issues via AJAX
   function loadSimilarIssues(comicTitle, years, issueNumber, loadAll) {
     let requestData = { comic_title: comicTitle, years: years, issue_number: issueNumber };
-    if (loadAll) {
-      requestData.limit = "all";
-    }
+    if (loadAll) { requestData.limit = "all"; }
     $.ajax({
       url: "getSimilarIssues.php",
       method: "GET",
       data: requestData,
       success: function(similarHtml) {
-        if (!loadAll) {
-          // Append the "Show All Similar Issues" link at the far right
-          similarHtml += "<div id='showAllSimilarIssues'>Show All Similar Issues</div>";
-        }
+        if (!loadAll) { similarHtml += "<div id='showAllSimilarIssues'>Show All Similar Issues</div>"; }
         $("#similarIssues").html(similarHtml);
       },
-      error: function() {
-        $("#similarIssues").html("<p class='text-danger'>Could not load similar issues.</p>");
-      }
+      error: function() { $("#similarIssues").html("<p class='text-danger'>Could not load similar issues.</p>"); }
     });
   }
 
-  // New Popup Modal for Cover Image with Details & Similar Issues
+  // Popup Modal for Cover Image with Details & Similar Issues
   $(document).on("click", ".gallery-item img", function(e) {
     if ($(e.target).closest("button").length) return;
-    
     const parent = $(this).closest(".gallery-item");
     const fullImageUrl = $(this).attr("src");
     const comicTitle = parent.data("comic-title") || "N/A";
@@ -576,25 +619,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const variant = parent.data("variant") || "N/A";
     const date = parent.attr("data-date") || "N/A";
     
- $("#popupMainImage").attr("src", fullImageUrl);
-$("#popupComicTitle").text(comicTitle);
-$("#popupYears").text(years);
-$("#popupIssueNumber").text(issueNumber);
-$("#popupTab").text(tab);
-$("#popupVariant").text(variant);
-$("#popupDate").text(date);
-const upc = parent.data("upc") || "N/A";  // Use 'parent' here instead of 'thumb'
-$("#popupUPC").text(upc);
-
-// Load similar issues (default limited to 4)
-loadSimilarIssues(comicTitle, years, issueNumber, false);
-
+    $("#popupMainImage").attr("src", fullImageUrl);
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text(tab);
+    $("#popupVariant").text(variant);
+    $("#popupDate").text(date);
+    const upc = parent.data("upc") || "N/A"; 
+    $("#popupUPC").text(upc);
     
+    loadSimilarIssues(comicTitle, years, issueNumber, false);
     const modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
     modal.show();
   });
 
-  // Handler for clicking "Show All Similar Issues"
+  // Handler for "Show All Similar Issues"
   $(document).on("click", "#showAllSimilarIssues", function() {
     const comicTitle = $("#popupComicTitle").text() || "";
     const years = $("#popupYears").text() || "";
@@ -604,32 +644,29 @@ loadSimilarIssues(comicTitle, years, issueNumber, false);
 
   // When a similar issue thumbnail is clicked, update the popup details
   $(document).on("click", ".similar-issue-thumb", function() {
-  const thumb = $(this);
-  const comicTitle = thumb.data("comic-title") || "N/A";
-  const years = thumb.data("years") || "N/A";
-  const issueNumber = thumb.data("issue-number") || "N/A";
-  const tab = thumb.data("tab") || "N/A";
-  const variant = thumb.data("variant") || "N/A";
-  const date = thumb.data("date") || "N/A";
-  const upc = thumb.data("upc") || "N/A";  // New: retrieve UPC from the clicked thumbnail
+    const thumb = $(this);
+    const comicTitle = thumb.data("comic-title") || "N/A";
+    const years = thumb.data("years") || "N/A";
+    const issueNumber = thumb.data("issue-number") || "N/A";
+    const tab = thumb.data("tab") || "N/A";
+    const variant = thumb.data("variant") || "N/A";
+    const date = thumb.data("date") || "N/A";
+    const upc = thumb.data("upc") || "N/A";
+    
+    $("#popupMainImage").attr("src", thumb.attr("src"));
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text(tab);
+    $("#popupVariant").text(variant);
+    $("#popupDate").text(date);
+    $("#popupUPC").text(upc);
+  });
 
-  $("#popupMainImage").attr("src", thumb.attr("src"));
-  $("#popupComicTitle").text(comicTitle);
-  $("#popupYears").text(years);
-  $("#popupIssueNumber").text(issueNumber);
-  $("#popupTab").text(tab);
-  $("#popupVariant").text(variant);
-  $("#popupDate").text(date);
-  $("#popupUPC").text(upc); // New: update the UPC field in the popup
-});
-
-  
   // Allow clicking the main popup image to open full-size in a new window
   $(document).on("click", "#popupMainImage", function() {
     const src = $(this).attr("src");
-    if(src) {
-      window.open(src, '_blank');
-    }
+    if(src) { window.open(src, '_blank'); }
   });
 });
 </script>
