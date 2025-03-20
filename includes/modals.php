@@ -1,3 +1,4 @@
+<!-- Modals.php -->
 <!-- MODALS -->
 <!-- Edit Sale Listing Modal -->
 <div class="modal fade" id="editSaleModal" tabindex="-1" aria-labelledby="editSaleModalLabel" aria-hidden="true">
@@ -13,10 +14,30 @@
           <div class="mb-3">
             <label for="editCondition" class="form-label">Condition</label>
             <select class="form-select" id="editCondition" name="condition" required>
-              <!-- options here -->
               <option value="10">10</option>
               <option value="9.9">9.9</option>
-              <!-- ... other options ... -->
+              <option value="9.8">9.8</option>
+              <option value="9.6">9.6</option>
+              <option value="9.4">9.4</option>
+              <option value="9.2">9.2</option>
+              <option value="9.0">9.0</option>
+              <option value="8.5">8.5</option>
+              <option value="8.0">8.0</option>
+              <option value="7.5">7.5</option>
+              <option value="7.0">7.0</option>
+              <option value="6.5">6.5</option>
+              <option value="6.0">6.0</option>
+              <option value="5.5">5.5</option>
+              <option value="5.0">5.0</option>
+              <option value="4.5">4.5</option>
+              <option value="4.0">4.0</option>
+              <option value="3.5">3.5</option>
+              <option value="3.0">3.0</option>
+              <option value="2.5">2.5</option>
+              <option value="2.0">2.0</option>
+              <option value="1.8">1.8</option>
+              <option value="1.5">1.5</option>
+              <option value="1.0">1.0</option>
               <option value="0.5">0.5</option>
             </select>
           </div>
@@ -55,10 +76,30 @@
           <div class="mb-3">
             <label for="bulkEditCondition" class="form-label">Condition</label>
             <select class="form-select" id="bulkEditCondition" name="condition" required>
-              <!-- options here -->
               <option value="10">10</option>
               <option value="9.9">9.9</option>
-              <!-- ... other options ... -->
+              <option value="9.8">9.8</option>
+              <option value="9.6">9.6</option>
+              <option value="9.4">9.4</option>
+              <option value="9.2">9.2</option>
+              <option value="9.0">9.0</option>
+              <option value="8.5">8.5</option>
+              <option value="8.0">8.0</option>
+              <option value="7.5">7.5</option>
+              <option value="7.0">7.0</option>
+              <option value="6.5">6.5</option>
+              <option value="6.0">6.0</option>
+              <option value="5.5">5.5</option>
+              <option value="5.0">5.0</option>
+              <option value="4.5">4.5</option>
+              <option value="4.0">4.0</option>
+              <option value="3.5">3.5</option>
+              <option value="3.0">3.0</option>
+              <option value="2.5">2.5</option>
+              <option value="2.0">2.0</option>
+              <option value="1.8">1.8</option>
+              <option value="1.5">1.5</option>
+              <option value="1.0">1.0</option>
               <option value="0.5">0.5</option>
             </select>
           </div>
@@ -126,6 +167,18 @@
             <tr>
               <th>UPC:</th>
               <td id="popupUPC"></td>
+            </tr>
+            <tr id="popupConditionRow">
+              <th>Condition:</th>
+              <td id="popupCondition"></td>
+            </tr>
+            <tr id="popupGradedRow">
+              <th>Graded:</th>
+              <td id="popupGraded"></td>
+            </tr>
+            <tr id="popupPriceRow">
+              <th>Price:</th>
+              <td id="popupPrice"></td>
             </tr>
           </table>
           <div class="similar-issues">

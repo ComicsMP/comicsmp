@@ -5,54 +5,64 @@
 document.addEventListener("DOMContentLoaded", () => {
   let searchMode = "startsWith";
   let autoSuggestRequest = null;
-  
+  var currentMatches = [];
+  // Set these as needed.
+  var currentUserId = 0; // set appropriate value
+  var userCurrency = "USD";
+
   // Create offcanvas instance so we can close it on year selection.
   var searchOffcanvas = new bootstrap.Offcanvas(document.getElementById('searchFiltersOffcanvas'));
 
   // Function to update tab buttons dynamically.
-  // Only runs if a series year is selected.
   function updateTabButtons(title) {
     const selectedYear = $("#yearSelect").val();
     if (!selectedYear) {
       $("#tabButtons").html("");
       return;
     }
-    $.get("getTabs.php", 
-      { comic_title: title, country: $("#countrySelect").val(), year: selectedYear, returnJson: 1 }, 
-      function(data) {
-        let tabButtonsHtml = "";
-        if (Array.isArray(data) && data.length > 0) {
-          data.forEach(function(tabOption) {
-            tabButtonsHtml += '<button type="button" class="btn btn-outline-primary tab-button" style="white-space: nowrap;">' + tabOption + '</button>';
-          });
-        } else {
-          // Fallback in case no data is returned.
-          tabButtonsHtml = '<button type="button" class="btn btn-outline-primary tab-button" style="white-space: nowrap;">All</button>' +
-                           '<button type="button" class="btn btn-outline-primary tab-button" style="white-space: nowrap;">Issues</button>';
-        }
-        $("#tabButtons").html(tabButtonsHtml);
-        // Mark "All" as active if it exists; otherwise, use the first button.
-        const $allButton = $("#tabButtons .tab-button").filter(function() {
-          return $(this).text().trim() === "All";
+    $.get("getTabs.php", { comic_title: title, country: $("#countrySelect").val(), year: selectedYear, returnJson: 1 }, function(data) {
+      let tabButtonsHtml = "";
+      if (Array.isArray(data) && data.length > 0) {
+        data.forEach(function(tabOption) {
+          tabButtonsHtml += '<button type="button" class="btn btn-outline-primary tab-button" style="white-space: nowrap;">' + tabOption + '</button>';
         });
-        if ($allButton.length) {
-          $allButton.addClass("active");
-        } else {
-          $("#tabButtons .tab-button").first().addClass("active");
-        }
-        // If the active tab is "Issues", load the issue numbers.
-        if ($("#tabButtons .tab-button.active").text().trim().toLowerCase() === "issues") {
+      } else {
+        tabButtonsHtml = '<button type="button" class="btn btn-outline-primary tab-button" style="white-space: nowrap;">All</button>' +
+                         '<button type="button" class="btn btn-outline-primary tab-button" style="white-space: nowrap;">Issues</button>';
+      }
+      $("#tabButtons").html(tabButtonsHtml);
+      const $allButton = $("#tabButtons .tab-button").filter(function() {
+        return $(this).text().trim() === "All";
+      });
+      if ($allButton.length) {
+        $allButton.addClass("active");
+      } else {
+        $("#tabButtons .tab-button").first().addClass("active");
+      }
+      // If active tab is "issues", reposition the dropdown and toggle.
+      if ($("#tabButtons .tab-button.active").text().trim().toLowerCase() === "issues") {
           loadMainIssues();
-          $("#issueSelectMain").show();
-          $("#variantToggleMain").show();
-        } else {
+          // Wrap the tabButtons in a flex container if not already done.
+          if ($("#tabButtons").parent().attr("id") !== "tabRow") {
+              $("#tabButtons").wrap('<div id="tabRow" style="display: flex; align-items: center; width: 100%;"></div>');
+          }
+          // Append the issue dropdown and variant toggle to the flex container.
+          $("#issueSelectMain").css({
+              "margin-left": "auto",
+              "display": "inline-block",
+              "vertical-align": "middle"
+          }).appendTo("#tabRow").show();
+          $("#variantToggleMain").css({
+              "display": "inline-block",
+              "vertical-align": "middle",
+              "margin-left": "10px"
+          }).appendTo("#tabRow").show();
+      } else {
           $("#issueSelectMain").hide();
           $("#variantToggleMain").hide();
-        }
-        performSearch();
-      },
-      "json"
-    );
+      }
+      performSearch();
+    }, "json");
   }
 
   // Function to perform live search and update gallery results.
@@ -64,12 +74,14 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if ($("#tabSelect").length) {
       tab = $("#tabSelect").val();
     }
-    // Use new main area issue dropdown if available.
-    const issueNumber = $("#issueSelectMain").length ? $("#issueSelectMain").val() : $("#issueSelect").val();
-    // Use new variant toggle if available.
-    const includeVariants = $("#variantToggleMain").length ?
-      ($("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0) :
-      ($("#variantToggle").attr("data-enabled") === "1" ? 1 : 0);
+    // Get the selected issue number from the dropdown
+    let issueNumber = $("#issueSelectMain").length ? $("#issueSelectMain").val() : $("#issueSelect").val();
+    const includeVariants = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
+    // --- New Change:
+    // If the dropdown is "All" and variants are enabled, clear the issue filter.
+    if(issueNumber === "All" && includeVariants === 1) {
+      issueNumber = "";
+    }
     const year = $("#yearSelect").val();
     const params = {
       comic_title: comicTitle,
@@ -80,9 +92,13 @@ document.addEventListener("DOMContentLoaded", () => {
       year: year,
       country: $("#countrySelect").val()
     };
-    // If a specific issue is selected and variants are enabled, send the base_issue parameter.
-    if (issueNumber !== "All" && includeVariants == 1) {
-      params.base_issue = issueNumber;
+    // When a specific issue is selected and variants are enabled, also send the base issue.
+    if (issueNumber !== "All" && issueNumber !== "" && includeVariants === 1) {
+      let baseIssue = issueNumber;
+      if (baseIssue.charAt(0) === "#") {
+        baseIssue = baseIssue.substring(1);
+      }
+      params.base_issue = baseIssue.trim();
     }
     $.ajax({
       url: "searchResults.php",
@@ -90,7 +106,6 @@ document.addEventListener("DOMContentLoaded", () => {
       data: params,
       success: function(html) {
         $("#resultsGallery").html(html);
-        // Attach action buttons to each gallery item.
         $(".gallery-item").each(function() {
           const $item = $(this);
           $item.find(".button-wrapper").remove();
@@ -174,15 +189,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Event for dynamic tab buttons click.
+  // Dynamic tab button click event.
   $(document).on("click", "#tabButtons .tab-button", function() {
     $("#tabButtons .tab-button").removeClass("active");
     $(this).addClass("active");
-    // If "Issues" tab is clicked, load the issue numbers and show the controls.
     if ($(this).text().trim().toLowerCase() === "issues") {
       loadMainIssues();
-      $("#issueSelectMain").show();
-      $("#variantToggleMain").show();
+      if ($("#tabButtons").parent().attr("id") !== "tabRow") {
+          $("#tabButtons").wrap('<div id="tabRow" style="display: flex; align-items: center; width: 100%;"></div>');
+      }
+      $("#issueSelectMain").css({"margin-left": "auto", "display": "inline-block", "vertical-align": "middle"}).appendTo("#tabRow").show();
+      $("#variantToggleMain").css({"display": "inline-block", "vertical-align": "middle", "margin-left": "10px"}).appendTo("#tabRow").show();
     } else {
       $("#issueSelectMain").hide();
       $("#variantToggleMain").hide();
@@ -190,12 +207,10 @@ document.addEventListener("DOMContentLoaded", () => {
     performSearch();
   });
 
-  // Event for new issue dropdown in main area.
   $("#issueSelectMain").on("change", function() {
     performSearch();
   });
 
-  // Event for new variants toggle button in main area.
   $("#variantToggleMain").on("click", function() {
     let enabled = $(this).attr("data-enabled") === "1" ? 0 : 1;
     $(this).attr("data-enabled", enabled);
@@ -204,10 +219,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       $(this).removeClass("btn-primary").addClass("btn-outline-primary");
     }
+    // Reload the issues dropdown to reflect the new state
+    loadMainIssues();
     performSearch();
   });
 
-  // Existing events for offcanvas elements.
   $(".search-mode").on("click", function() {
     if (autoSuggestRequest) { autoSuggestRequest.abort(); }
     $(".search-mode").removeClass("active");
@@ -236,7 +252,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // When a suggestion is clicked, update comic title, year options, and dynamic tab buttons.
   $(document).on("click", ".suggestion-item", function() {
     const title = $(this).text();
     $("#comicTitle").val(title);
@@ -246,7 +261,6 @@ document.addEventListener("DOMContentLoaded", () => {
       $("#yearFilterGroup").show();
       performSearch();
     });
-    // Only update tab buttons if a year is already selected.
     if ($("#yearSelect").val()) {
       updateTabButtons(title);
     } else {
@@ -254,7 +268,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // When the series year changes, update the tab buttons and close the offcanvas.
   $("#yearSelect").on("change", function(){
     performSearch();
     const selectedYear = $(this).val();
@@ -267,16 +280,13 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       $("#tabButtons").html("");
     }
-    // Close the offcanvas automatically.
     searchOffcanvas.hide();
   });
 
-  // Ensure that clicking the Search nav always opens the offcanvas.
   $("#navSearch").on("click", function() {
     searchOffcanvas.show();
   });
 
-  // Legacy events for country select and tabSelect (if still needed).
   $("#tabSelect, #countrySelect").on("change", function(){
     if ($("#tabSelect").val() === "Issues") {
       $("#issueFilterGroup").show();
@@ -296,20 +306,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("#issueSelect").on("change", function(){ performSearch(); });
   
-  // Updated loadMainIssues function:
   function loadMainIssues() {
     const comicTitle = $("#comicTitle").val();
     const year = $("#yearSelect").val();
-    const params = { comic_title: comicTitle, only_main: 1, year: year, country: $("#countrySelect").val() };
+    // Adjust parameter based on the Include Variants toggle state:
+    const includeVariantsEnabled = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
+    // If variants are enabled, set only_main to 0 so that all issues (main + variants) are fetched;
+    // otherwise, set only_main to 1 to fetch only main issues.
+    const params = { 
+      comic_title: comicTitle, 
+      only_main: includeVariantsEnabled ? 0 : 1, 
+      year: year, 
+      country: $("#countrySelect").val() 
+    };
     $.get("getIssues.php", params, function(data) {
-      // Prepend an "All" option to the returned data.
       $("#issueSelect").html("<option value='All'>All</option>" + data);
       $("#issueSelectMain").html("<option value='All'>All</option>" + data);
       performSearch();
     });
   }
 
-  // Other functionality (wanted, sale, matches, modals, etc.) remains unchanged.
+  $("#variantToggle").on("click", function() {
+    let enabled = $(this).attr("data-enabled") === "1" ? 0 : 1;
+    $(this).attr("data-enabled", enabled);
+    if (enabled == 1) {
+      $(this).removeClass("btn-outline-primary").addClass("btn-primary");
+    } else {
+      $(this).removeClass("btn-primary").addClass("btn-outline-primary");
+    }
+    performSearch();
+  });
+
+  // -------------------------------
+  // MODAL FUNCTIONALITY (Wanted, Sale, Matches)
+  // -------------------------------
   $(document).on("click", ".add-to-wanted", function(e) {
     e.preventDefault();
     const btn = $(this);
@@ -365,6 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Popup Modal for Cover Image in Gallery Items.
   $(document).on("click", ".gallery-item img", function(e) {
     if ($(e.target).closest("button").length) return;
     const parent = $(this).closest(".gallery-item");
@@ -375,7 +406,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tab = parent.data("tab") || "N/A";
     const variant = parent.data("variant") || "N/A";
     const date = parent.attr("data-date") || "N/A";
-    
     $("#popupMainImage").attr("src", fullImageUrl);
     $("#popupComicTitle").text(comicTitle);
     $("#popupYears").text(years);
@@ -383,13 +413,82 @@ document.addEventListener("DOMContentLoaded", () => {
     $("#popupTab").text(tab);
     $("#popupVariant").text(variant);
     $("#popupDate").text(date);
-    const upc = parent.data("upc") || "N/A"; 
+    const upc = parent.data("upc") || "N/A";
     $("#popupUPC").text(upc);
-    
+    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
     loadSimilarIssues(comicTitle, years, issueNumber, false);
     var modalEl = document.getElementById("coverPopupModal");
     var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
     modalInstance.show();
+  });
+
+  // Popup Modal for Cover Image in Wanted/Sale Covers.
+  $(document).on("click", ".cover-img", function(e) {
+    e.preventDefault();
+    var $wrapper = $(this).closest(".cover-wrapper");
+    var comicTitle = $wrapper.data("comic-title") || "N/A";
+    var years = $wrapper.data("years") || "N/A";
+    var issueNumber = $wrapper.data("issue-number") || "N/A";
+    var tab = $wrapper.data("tab") || "N/A";
+    var variant = $wrapper.data("variant") || "N/A";
+    var date = $wrapper.data("date") || "N/A";
+    var upc = $wrapper.data("upc") || "N/A";
+    $("#popupMainImage").attr("src", $(this).attr("src"));
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text(tab);
+    $("#popupVariant").text(variant);
+    $("#popupDate").text(date);
+    $("#popupUPC").text(upc);
+    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
+    var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
+    modal.show();
+  });
+
+  // Popup Modal for Match Cover Images.
+  $(document).on("click", ".match-cover-img", function(e) {
+    e.preventDefault();
+    var $img = $(this);
+    var src = $img.attr("src");
+    var comicTitle = $img.data("comic-title") || "N/A";
+    var years = $img.data("years") || "N/A";
+    var issueNumber = $img.data("issue-number") || "N/A";
+    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").show();
+    var condition = $img.data("condition") || "N/A";
+    var graded = $img.data("graded") || "N/A";
+    var price = $img.data("price") || "N/A";
+    $("#popupMainImage").attr("src", src);
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text("Loading...");
+    $("#popupVariant").text("Loading...");
+    $("#popupDate").text("Loading...");
+    $("#popupCondition").text(condition);
+    $("#popupGraded").text(graded);
+    $("#popupPrice").text(price);
+    $.ajax({
+      url: "getMatchComicDetails.php",
+      method: "GET",
+      dataType: "json",
+      data: { comic_title: comicTitle, years: years, issue_number: issueNumber },
+      success: function(data) {
+        $("#popupTab").text(data.Tab || "N/A");
+        $("#popupVariant").text(data.Variant || "N/A");
+        $("#popupDate").text(data.Date || "N/A");
+        if(data.comic_condition) { $("#popupCondition").text(data.comic_condition); }
+        if(data.graded) { $("#popupGraded").text(data.graded); }
+        if(data.price) { $("#popupPrice").text(data.price); }
+      },
+      error: function() {
+        $("#popupTab").text("N/A");
+        $("#popupVariant").text("N/A");
+        $("#popupDate").text("N/A");
+      }
+    });
+    var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
+    modal.show();
   });
 
   $(document).on("click", "#showAllSimilarIssues", function() {
@@ -408,7 +507,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const variant = thumb.data("variant") || "N/A";
     const date = thumb.data("date") || "N/A";
     const upc = thumb.data("upc") || "N/A";
-    
     $("#popupMainImage").attr("src", thumb.attr("src"));
     $("#popupComicTitle").text(comicTitle);
     $("#popupYears").text(years);
@@ -444,9 +542,7 @@ document.addEventListener("DOMContentLoaded", () => {
         $("#covers-" + index).html(html);
         $(rowSelector).slideDown();
       },
-      error: function () {
-        alert("Error loading series covers.");
-      }
+      error: function () { alert("Error loading series covers."); }
     });
   });
 
@@ -470,9 +566,7 @@ document.addEventListener("DOMContentLoaded", () => {
         $("#sale-covers-" + index).html(html);
         $(rowSelector).slideDown();
       },
-      error: function () {
-        alert("Error loading sale covers.");
-      }
+      error: function () { alert("Error loading sale covers."); }
     });
   });
 
@@ -494,7 +588,6 @@ document.addEventListener("DOMContentLoaded", () => {
     var matchesData = $(this).data("matches");
     var matchesArray = (typeof matchesData === "string") ? JSON.parse(matchesData) : matchesData;
     currentMatches = matchesArray;
-
     var html = "";
     if (matchesArray.length) {
       matchesArray.forEach(function(match, idx) {
@@ -565,13 +658,10 @@ document.addEventListener("DOMContentLoaded", () => {
           alert(response.message);
         }
       },
-      error: function() {
-        alert("Failed to send message.");
-      }
+      error: function() { alert("Failed to send message."); }
     });
   });
 
-  // Automatically open the offcanvas when "Search" is clicked.
   $("#navSearch").on("click", function() {
     searchOffcanvas.show();
   });

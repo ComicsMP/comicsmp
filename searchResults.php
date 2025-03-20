@@ -77,21 +77,36 @@ try {
     }
 
     // Issue number filtering.
-    if ($issue_number) {
+    if ($issue_number && $issue_number !== "All") {
         if ($tab === 'Issues') {
-            $whereParts[] = "REPLACE(c.Issue_Number, '#', '') = ?";
-            $params[]     = str_replace('#', '', $issue_number);
-            $types       .= 's';
+            $base_issue = str_replace('#', '', $issue_number);
+            if (!$include_var) {
+                // Only the exact main issue (e.g., "2")
+                $whereParts[] = "REPLACE(c.Issue_Number, '#', '') = ?";
+                $params[] = $base_issue;
+                $types .= 's';
+            } else {
+                // Fetch the exact issue plus valid variant formats.
+                $whereParts[] = "(REPLACE(c.Issue_Number, '#', '') = ? 
+                                OR REPLACE(c.Issue_Number, '#', '') LIKE ? 
+                                OR REPLACE(c.Issue_Number, '#', '') REGEXP ?)";
+                $params[] = $base_issue;
+                $params[] = $base_issue . '[A-Z]%';
+                $params[] = '^' . preg_quote($base_issue) . '(?:[-.]?[A-Za-z].*)?$';
+                $types .= 'sss';
+            }
         } elseif ($tab === 'Variants') {
             $whereParts[] = "CAST(REPLACE(c.Issue_Number, '#', '') AS UNSIGNED) = ?";
             $params[]     = (int) str_replace('#', '', $issue_number);
             $types       .= 'i';
         }
-    }
-
-    // For Issues tab, exclude variants unless requested.
-    if ($tab === 'Issues' && !$include_var) {
-        $whereParts[] = "REPLACE(c.Issue_Number, '#', '') REGEXP '^[0-9]+$'";
+    } else {
+        // When no specific issue number is provided (or "All" is selected)
+        // If variants are NOT enabled, limit to main issues only.
+        if ($tab === 'Issues' && !$include_var) {
+            $whereParts[] = "REPLACE(c.Issue_Number, '#', '') REGEXP '^[0-9]+$'";
+        }
+        // If variants are enabled and no issue number is provided, no additional filter is applied.
     }
 
     $whereClause = implode(' AND ', $whereParts);
@@ -151,27 +166,23 @@ try {
             $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
             $upc = htmlspecialchars($row['upc'] ?? 'N/A');
 
-            // Process image path with placeholder
+            // Process image path with placeholder.
             $rawPath = trim($row['image_path'] ?? '');
             if (empty($rawPath) || strtolower($rawPath) === 'null') {
                 $imgPath = "http://localhost/comicsmp/images/default.jpg";
             } elseif (filter_var($rawPath, FILTER_VALIDATE_URL)) {
-                $imgPath = $rawPath; // Use full valid URLs as is
+                $imgPath = $rawPath;
             } else {
-               // Ensure correct concatenation with a leading slash if missing
-               if (strpos($rawPath, '/') !== 0) {
-                   $rawPath = '/' . $rawPath;
-               }
-               $imgPath = "http://localhost/comicsmp" . $rawPath;
-             }
+                if (strpos($rawPath, '/') !== 0) {
+                    $rawPath = '/' . $rawPath;
+                }
+                $imgPath = "http://localhost/comicsmp" . $rawPath;
+            }
 
-
-            // Ensure issue number formatting.
             if (strpos($issue, '#') !== 0) {
                 $issue = '#' . $issue;
             }
 
-            // Output the gallery item with a corrected image path.
             echo "<div class='gallery-item' 
                           data-comic-title='{$title}' 
                           data-years='{$yrs}' 

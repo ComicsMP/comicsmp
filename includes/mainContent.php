@@ -1,39 +1,41 @@
+<!-- mainContent.php -->
 <!-- MAIN CONTENT AREA -->
 <div class="main-content">
   <div class="tab-content" id="profileTabContent">
+    
     <!-- DASHBOARD TAB -->
     <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
       <h2>Dashboard</h2>
       <p>Welcome to the Dashboard. Customize this section as needed.</p>
     </div>
+
     <!-- SEARCH TAB -->
     <div class="tab-pane fade" id="search" role="tabpanel">
+      <!-- The offcanvas panel will open automatically when Search is activated -->
       <section class="content-area">
-        <!-- NEW MAIN AREA FILTERS -->
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <!-- Tab selection buttons (replacing the offcanvas tab dropdown) -->
-            <div id="tabButtons" class="btn-group" role="group">
-              <button type="button" class="btn btn-outline-primary tab-button active" data-tab="All">All</button>
-              <button type="button" class="btn btn-outline-primary tab-button" data-tab="Issues">Issues</button>
-              <!-- Add more tab options here if needed -->
-            </div>
+        <!-- Insert your tab buttons, issueSelectMain, and variantToggleMain above the gallery.
+             The script uses "#tabButtons", "#issueSelectMain", and "#variantToggleMain" dynamically. -->
+        <div class="search-controls mb-3">
+          <!-- Tab Buttons -->
+          <div id="tabButtons" class="btn-group mb-2" role="group" aria-label="Tab Buttons">
+            <!-- Populated by your JavaScript (updateTabButtons) -->
           </div>
-          <div class="col-md-6 text-end">
-            <!-- Issue number dropdown and included variants toggle -->
-            <div id="issueAndVariants">
-              <select id="issueSelectMain" class="form-select d-inline-block" style="width: auto;">
-                <option value="All">All</option>
-                <!-- Additional options will be loaded dynamically -->
-              </select>
-              <button type="button" class="btn btn-outline-primary" id="variantToggleMain" data-enabled="0">Include Variants</button>
-            </div>
+
+          <!-- Issue Select & Variant Toggle -->
+          <div class="d-flex align-items-center gap-2">
+            <select id="issueSelectMain" class="form-select" style="display:none; max-width: 160px;">
+              <!-- Populated by loadMainIssues() -->
+            </select>
+            <button id="variantToggleMain" type="button" class="btn btn-outline-primary" data-enabled="0" style="display:none;">
+              Include Variants
+            </button>
           </div>
         </div>
         <!-- Results Gallery -->
         <div id="resultsGallery" class="gallery"></div>
       </section>
     </div>
+
     <!-- WANTED TAB -->
     <div class="tab-pane fade" id="wanted" role="tabpanel">
       <h2 class="mt-4">My Wanted Comics</h2>
@@ -79,6 +81,7 @@
         </table>
       <?php endif; ?>
     </div>
+
     <!-- COMICS FOR SALE TAB -->
     <div class="tab-pane fade" id="selling" role="tabpanel">
       <h2 class="mt-4">Comics for Sale</h2>
@@ -130,6 +133,7 @@
         </table>
       <?php endif; ?>
     </div>
+
     <!-- MATCHES TAB -->
     <div class="tab-pane fade" id="matches" role="tabpanel">
       <h2 class="mt-4">Your Matches</h2>
@@ -195,16 +199,17 @@
                         <?php foreach ($buyMatches as $m): ?>
                           <tr>
                             <td style="width:70px;">
-                              <img class="match-cover-img"
+                              <img class="match-cover-img cover-img"
                                    src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>"
                                    data-context="buy"
                                    data-other-user-id="<?php echo $otherUserId; ?>"
                                    data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
                                    data-years="<?php echo htmlspecialchars($m['years']); ?>"
                                    data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
-                                   data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?>"
-                                   data-graded="<?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?>"
-                                   data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>"
+                                   data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
+                                   data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
+                                   data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
+                                   data-upc="<?php echo htmlspecialchars($m['upc'] ?? 'N/A'); ?>"
                                    alt="Cover">
                             </td>
                             <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
@@ -237,16 +242,17 @@
                         <?php foreach ($sellMatches as $m): ?>
                           <tr>
                             <td style="width:70px;">
-                              <img class="match-cover-img"
+                              <img class="match-cover-img cover-img"
                                    src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>"
                                    data-context="sell"
                                    data-other-user-id="<?php echo $otherUserId; ?>"
                                    data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
                                    data-years="<?php echo htmlspecialchars($m['years']); ?>"
                                    data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
-                                   data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?>"
-                                   data-graded="<?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?>"
-                                   data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>"
+                                   data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
+                                   data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
+                                   data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
+                                   data-upc="<?php echo htmlspecialchars($m['upc'] ?? 'N/A'); ?>"
                                    alt="Cover">
                             </td>
                             <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
@@ -267,10 +273,11 @@
         </table>
       <?php endif; ?>
     </div>
+
     <!-- PROFILE TAB -->
     <div class="tab-pane fade" id="profile" role="tabpanel">
-      <h2>Profile</h2>
-      <p>Profile content goes here. (This could include user settings, activity, etc.)</p>
+      <?php include 'profile_content_inner.php'; ?>
     </div>
+
   </div>
 </div>
