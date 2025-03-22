@@ -11,17 +11,11 @@
 
     <!-- SEARCH TAB -->
     <div class="tab-pane fade" id="search" role="tabpanel">
-      <!-- The offcanvas panel will open automatically when Search is activated -->
       <section class="content-area">
-        <!-- Insert your tab buttons, issueSelectMain, and variantToggleMain above the gallery.
-             The script uses "#tabButtons", "#issueSelectMain", and "#variantToggleMain" dynamically. -->
         <div class="search-controls mb-3">
-          <!-- Tab Buttons -->
           <div id="tabButtons" class="btn-group mb-2" role="group" aria-label="Tab Buttons">
             <!-- Populated by your JavaScript (updateTabButtons) -->
           </div>
-
-          <!-- Issue Select & Variant Toggle -->
           <div class="d-flex align-items-center gap-2">
             <select id="issueSelectMain" class="form-select" style="display:none; max-width: 160px;">
               <!-- Populated by loadMainIssues() -->
@@ -31,14 +25,12 @@
             </button>
           </div>
         </div>
-        <!-- Results Gallery -->
         <div id="resultsGallery" class="gallery"></div>
       </section>
     </div>
 
     <!-- WANTED TAB -->
     <div class="tab-pane fade" id="wanted" role="tabpanel">
-      <h2 class="mt-4">My Wanted Comics</h2>
       <?php if (empty($wantedSeries)): ?>
         <p>No wanted items found.</p>
       <?php else: ?>
@@ -84,7 +76,6 @@
 
     <!-- COMICS FOR SALE TAB -->
     <div class="tab-pane fade" id="selling" role="tabpanel">
-      <h2 class="mt-4">Comics for Sale</h2>
       <?php if (empty($saleGroups)): ?>
         <p>No comics listed for sale.</p>
       <?php else: ?>
@@ -134,150 +125,328 @@
       <?php endif; ?>
     </div>
 
-    <!-- MATCHES TAB -->
+    <!-- MATCHES TAB using Sub-Tabbed Interface with Messaging -->
     <div class="tab-pane fade" id="matches" role="tabpanel">
-      <h2 class="mt-4">Your Matches</h2>
       <?php if (empty($groupedMatches)): ?>
         <p>No matches found at this time.</p>
       <?php else: ?>
-        <table class="table table-striped" id="matchesTable">
-          <thead>
-            <tr>
-              <th>Other Party</th>
-              <th># of Issues Matched</th>
-              <th>Contact</th>
-              <th>Expand</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($groupedMatches as $otherUserId => $matchesArray):
-                    $displayName = $userNamesMap[$otherUserId] ?? ('User #'.$otherUserId);
-            ?>
-              <tr class="match-main-row" data-index="<?php echo $otherUserId; ?>">
-                <td><?php echo htmlspecialchars($displayName); ?></td>
-                <td><?php echo count($matchesArray); ?></td>
-                <td>
-                  <button class="btn btn-sm btn-primary send-message-btn"
-                          data-other-user-id="<?php echo $otherUserId; ?>"
-                          data-other-username="<?php echo htmlspecialchars($displayName); ?>"
-                          data-matches='<?php echo json_encode($matchesArray); ?>'>
-                    PM
-                  </button>
-                </td>
-                <td>
-                  <button class="btn btn-info btn-sm expand-match-btn"
-                          data-other-user-id="<?php echo $otherUserId; ?>">
-                    Expand
-                  </button>
-                </td>
-              </tr>
-              <tr class="expand-match-row" id="expand-match-<?php echo $otherUserId; ?>" style="display:none;">
-                <td colspan="4">
-                  <?php 
-                    $buyMatches = array_filter($matchesArray, function($m) use ($user_id) {
-                        return $m['buyer_id'] == $user_id;
-                    });
-                    $sellMatches = array_filter($matchesArray, function($m) use ($user_id) {
-                        return $m['seller_id'] == $user_id;
-                    });
-                  ?>
-                  <?php if (!empty($buyMatches)): ?>
-                    <h5>Comics You Can Buy From <?php echo htmlspecialchars($displayName); ?></h5>
-                    <table class="table table-bordered nested-table">
-                      <thead>
-                        <tr>
-                          <th>Cover</th>
-                          <th>Comic Title</th>
-                          <th>Issue #</th>
-                          <th>Year</th>
-                          <th>Condition</th>
-                          <th>Graded</th>
-                          <th>Price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <?php foreach ($buyMatches as $m): ?>
-                          <tr>
-                            <td style="width:70px;">
-                              <img class="match-cover-img cover-img"
-                                   src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>"
-                                   data-context="buy"
-                                   data-other-user-id="<?php echo $otherUserId; ?>"
-                                   data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
-                                   data-years="<?php echo htmlspecialchars($m['years']); ?>"
-                                   data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
-                                   data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
-                                   data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
-                                   data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
-                                   data-upc="<?php echo htmlspecialchars($m['upc'] ?? 'N/A'); ?>"
-                                   alt="Cover">
-                            </td>
-                            <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
-                            <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
-                            <td><?php echo htmlspecialchars($m['years']); ?></td>
-                            <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
-                            <td><?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?></td>
-                            <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?></td>
-                          </tr>
-                        <?php endforeach; ?>
-                      </tbody>
-                    </table>
-                  <?php endif; ?>
-
-                  <?php if (!empty($sellMatches)): ?>
-                    <h5>Comics You Can Sell To <?php echo htmlspecialchars($displayName); ?></h5>
-                    <table class="table table-bordered nested-table">
-                      <thead>
-                        <tr>
-                          <th>Cover</th>
-                          <th>Comic Title</th>
-                          <th>Issue #</th>
-                          <th>Year</th>
-                          <th>Condition</th>
-                          <th>Graded</th>
-                          <th>Price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <?php foreach ($sellMatches as $m): ?>
-                          <tr>
-                            <td style="width:70px;">
-                              <img class="match-cover-img cover-img"
-                                   src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>"
-                                   data-context="sell"
-                                   data-other-user-id="<?php echo $otherUserId; ?>"
-                                   data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
-                                   data-years="<?php echo htmlspecialchars($m['years']); ?>"
-                                   data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
-                                   data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
-                                   data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
-                                   data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
-                                   data-upc="<?php echo htmlspecialchars($m['upc'] ?? 'N/A'); ?>"
-                                   alt="Cover">
-                            </td>
-                            <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
-                            <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
-                            <td><?php echo htmlspecialchars($m['years']); ?></td>
-                            <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
-                            <td><?php echo ($m['graded'] == '1') ? 'Yes' : 'No'; ?></td>
-                            <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?></td>
-                          </tr>
-                        <?php endforeach; ?>
-                      </tbody>
-                    </table>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+        <div class="accordion" id="matchesAccordion">
+          <?php foreach ($groupedMatches as $otherUserId => $matchesArray):
+                  $displayName = $userNamesMap[$otherUserId] ?? ('User #'.$otherUserId);
+                  // Separate matches into buy and sell groups
+                  $buyMatches = array_filter($matchesArray, function($m) use ($user_id) {
+                      return $m['buyer_id'] == $user_id;
+                  });
+                  $sellMatches = array_filter($matchesArray, function($m) use ($user_id) {
+                      return $m['seller_id'] == $user_id;
+                  });
+                  // Determine overall intent: "buy", "sell", or "buy_sell"
+                  $intent = ($buyMatches && !$sellMatches) ? 'buy' : (($sellMatches && !$buyMatches) ? 'sell' : 'buy_sell');
+          ?>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="heading-<?php echo $otherUserId; ?>">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $otherUserId; ?>">
+                  <?php echo htmlspecialchars($displayName); ?> (<?php echo count($matchesArray); ?> matches)
+                </button>
+              </h2>
+              <div id="collapse-<?php echo $otherUserId; ?>" class="accordion-collapse collapse" data-bs-parent="#matchesAccordion">
+                <div class="accordion-body">
+                  <!-- Sub-tabs for Buy, Sell, and Message -->
+                  <ul class="nav nav-tabs" id="subTab-<?php echo $otherUserId; ?>" role="tablist">
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link active" id="buy-tab-<?php echo $otherUserId; ?>" data-bs-toggle="tab" data-bs-target="#buy-<?php echo $otherUserId; ?>" type="button" role="tab">
+                        Buy From <?php echo htmlspecialchars($displayName); ?>
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" id="sell-tab-<?php echo $otherUserId; ?>" data-bs-toggle="tab" data-bs-target="#sell-<?php echo $otherUserId; ?>" type="button" role="tab">
+                        Sell To <?php echo htmlspecialchars($displayName); ?>
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" id="message-tab-<?php echo $otherUserId; ?>" data-bs-toggle="tab" data-bs-target="#message-<?php echo $otherUserId; ?>" type="button" role="tab">
+                        Message <?php echo htmlspecialchars($displayName); ?>
+                      </button>
+                    </li>
+                  </ul>
+                  <div class="tab-content mt-2">
+                    <!-- Buy Tab Content -->
+                    <div class="tab-pane fade show active" id="buy-<?php echo $otherUserId; ?>" role="tabpanel">
+                      <?php if (empty($buyMatches)): ?>
+                        <p>No comics available to buy.</p>
+                      <?php else: ?>
+                        <table class="table table-bordered">
+                          <thead>
+                            <tr>
+                              <th>Cover</th>
+                              <th>Comic Title</th>
+                              <th>Issue #</th>
+                              <th>Year</th>
+                              <th>Condition</th>
+                              <th>Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <?php foreach ($buyMatches as $m): ?>
+                              <tr>
+                                <td style="width:70px;">
+                                  <img class="match-cover-img" 
+                                       src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>" 
+                                       alt="Cover" 
+                                       style="width:70px; height:100px; object-fit:cover;"
+                                       data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
+                                       data-years="<?php echo htmlspecialchars($m['years']); ?>"
+                                       data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
+                                       data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
+                                       data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
+                                       data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
+                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? ''); ?>"
+                                       data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? ''); ?>"
+                                       data-graded="<?php echo htmlspecialchars(($m['graded'] ?? '') == '1' ? 'Yes' : 'No'); ?>"
+                                       data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>">
+                                </td>
+                                <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
+                                <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
+                                <td><?php echo htmlspecialchars($m['years']); ?></td>
+                                <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
+                                <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?></td>
+                              </tr>
+                            <?php endforeach; ?>
+                          </tbody>
+                        </table>
+                      <?php endif; ?>
+                    </div>
+                    <!-- Sell Tab Content (Modified to use full data attributes) -->
+                    <div class="tab-pane fade" id="sell-<?php echo $otherUserId; ?>" role="tabpanel">
+                      <?php if (empty($sellMatches)): ?>
+                        <p>No comics available to sell.</p>
+                      <?php else: ?>
+                        <table class="table table-bordered">
+                          <thead>
+                            <tr>
+                              <th>Cover</th>
+                              <th>Comic Title</th>
+                              <th>Issue #</th>
+                              <th>Year</th>
+                              <th>Condition</th>
+                              <th>Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <?php foreach ($sellMatches as $m): ?>
+                              <tr>
+                                <td style="width:70px;">
+                                  <img class="match-cover-img" 
+                                       src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>" 
+                                       alt="Cover" 
+                                       style="width:70px; height:100px; object-fit:cover;"
+                                       data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
+                                       data-years="<?php echo htmlspecialchars($m['years']); ?>"
+                                       data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
+                                       data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
+                                       data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
+                                       data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
+                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? ''); ?>"
+                                       data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? ''); ?>"
+                                       data-graded="<?php echo htmlspecialchars(($m['graded'] ?? '') == '1' ? 'Yes' : 'No'); ?>"
+                                       data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>">
+                                </td>
+                                <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
+                                <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
+                                <td><?php echo htmlspecialchars($m['years']); ?></td>
+                                <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
+                                <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?></td>
+                              </tr>
+                            <?php endforeach; ?>
+                          </tbody>
+                        </table>
+                      <?php endif; ?>
+                    </div>
+                    <!-- Message Tab Content -->
+                    <div class="tab-pane fade" id="message-<?php echo $otherUserId; ?>" role="tabpanel">
+                      <p class="small text-muted">
+                        Please select the issues you wish to reference. The default subject and message will update automatically.
+                      </p>
+                      <form class="send-message-form" data-other-user-id="<?php echo $otherUserId; ?>" data-intent="<?php echo $intent; ?>" data-displayname="<?php echo htmlspecialchars($displayName); ?>">
+                        <input type="hidden" name="recipient_id" value="<?php echo $otherUserId; ?>">
+                        
+                        <div class="mb-3">
+                          <?php if (!empty($buyMatches)): ?>
+                            <h6 class="text-secondary">Buy From <?php echo htmlspecialchars($displayName); ?></h6>
+                            <?php foreach ($buyMatches as $index => $m): ?>
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selected_issues_buy[]" value="<?php echo $index; ?>" id="issue-buy-<?php echo $otherUserId . '-' . $index; ?>">
+                                <label class="form-check-label" for="issue-buy-<?php echo $otherUserId . '-' . $index; ?>">
+                                  <?php 
+                                    echo htmlspecialchars(
+                                      ($m['comic_title'] ?? $m['Comic_Title'] ?? '') . " Issue " . 
+                                      ($m['issue_number'] ?? $m['Issue_Number'] ?? '') . " (" . 
+                                      ($m['years'] ?? $m['Years'] ?? '') . ") - " .
+                                      "Condition: " . ($m['comic_condition'] ?? $m['condition'] ?? 'N/A') . ", " .
+                                      "Price: " . (!empty($m['price']) ? '$'.number_format($m['price'],2).' '.($m['currency'] ?? $currency) : 'N/A')
+                                    );
+                                  ?>
+                                </label>
+                              </div>
+                            <?php endforeach; ?>
+                          <?php endif; ?>
+                        </div>
+                        
+                        <div class="mb-3">
+                          <?php if (!empty($sellMatches)): ?>
+                            <h6 class="text-secondary">Sell To <?php echo htmlspecialchars($displayName); ?></h6>
+                            <?php foreach ($sellMatches as $index => $m): ?>
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selected_issues_sell[]" value="<?php echo $index; ?>" id="issue-sell-<?php echo $otherUserId . '-' . $index; ?>">
+                                <label class="form-check-label" for="issue-sell-<?php echo $otherUserId . '-' . $index; ?>">
+                                  <?php 
+                                    echo htmlspecialchars(
+                                      ($m['comic_title'] ?? $m['Comic_Title'] ?? '') . " Issue " . 
+                                      ($m['issue_number'] ?? $m['Issue_Number'] ?? '') . " (" . 
+                                      ($m['years'] ?? $m['Years'] ?? '') . ") - " .
+                                      "Condition: " . ($m['comic_condition'] ?? $m['condition'] ?? 'N/A') . ", " .
+                                      "Price: " . (!empty($m['price']) ? '$'.number_format($m['price'],2).' '.($m['currency'] ?? $currency) : 'N/A')
+                                    );
+                                  ?>
+                                </label>
+                              </div>
+                            <?php endforeach; ?>
+                          <?php endif; ?>
+                        </div>
+                        
+                        <div class="mb-3">
+                          <label for="subject-<?php echo $otherUserId; ?>" class="form-label">Subject</label>
+                          <input type="text" class="form-control" id="subject-<?php echo $otherUserId; ?>" name="subject" placeholder="Enter subject">
+                        </div>
+                        
+                        <div class="mb-3">
+                          <label for="message-<?php echo $otherUserId; ?>-text" class="form-label">Message</label>
+                          <textarea class="form-control" id="message-<?php echo $otherUserId; ?>-text" name="message" rows="4" placeholder="Enter your message here"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                      </form>
+                    </div>
+                  </div><!-- End sub-tab content -->
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
       <?php endif; ?>
     </div>
 
     <!-- PROFILE TAB -->
     <div class="tab-pane fade" id="profile" role="tabpanel">
-      <?php include 'profile_content_inner.php'; ?>
+      <?php include 'includes/profile_content_inner.php'; ?>
     </div>
 
+    <!-- MESSAGES TAB -->
+    <div class="tab-pane fade" id="messages" role="tabpanel">
+      <?php include 'messages.php'; ?>
+    </div>
+    
   </div>
 </div>
+
+<!-- Include jQuery and Bootstrap JS (if not already loaded) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Auto-Populate Default Subject and Message on Tab Show and on Checkbox Change -->
+<script>
+$('button[data-bs-target^="#message-"]').on('shown.bs.tab', function(e) {
+  var targetId = $(this).data('bsTarget');
+  var $messageTab = $(targetId);
+  var form = $messageTab.find('.send-message-form');
+  if(form.length) {
+    updateDefaultText(form);
+  }
+});
+
+$(document).on("change", ".send-message-form input[name='selected_issues_buy[]'], .send-message-form input[name='selected_issues_sell[]']", function() {
+  var form = $(this).closest('.send-message-form');
+  updateDefaultText(form);
+});
+
+function updateDefaultText(form) {
+  var intent = form.data("intent"); 
+  var displayName = form.data("displayname");
+  var subjectField = form.find("input[name='subject']");
+  var messageField = form.find("textarea[name='message']");
+  
+  var selectedBuy = [];
+  form.find('input[name="selected_issues_buy[]"]:checked').each(function(){
+    var labelText = $(this).siblings("label").text();
+    selectedBuy.push(labelText);
+  });
+  var selectedSell = [];
+  form.find('input[name="selected_issues_sell[]"]:checked').each(function(){
+    var labelText = $(this).siblings("label").text();
+    selectedSell.push(labelText);
+  });
+  
+  var overallIntent = intent;
+  if(selectedBuy.length > 0 && selectedSell.length === 0) {
+    overallIntent = "buy";
+  } else if(selectedSell.length > 0 && selectedBuy.length === 0) {
+    overallIntent = "sell";
+  } else if(selectedBuy.length > 0 && selectedSell.length > 0) {
+    overallIntent = "buy_sell";
+  }
+  
+  var defaultSubject = "";
+  if(overallIntent === "buy") {
+    defaultSubject = "Inquiry: Interested in Purchasing Matched Comics";
+  } else if(overallIntent === "sell") {
+    defaultSubject = "Inquiry: Interested in Selling Matched Comics";
+  } else {
+    defaultSubject = "Inquiry: Buy & Sell Inquiry for Matched Comics";
+  }
+  subjectField.val(defaultSubject);
+  
+  var defaultMessage = "Hello " + displayName + ",\n\n";
+  if(overallIntent === "buy") {
+    defaultMessage += "I am interested in purchasing the following issues:\n\n";
+    defaultMessage += selectedBuy.join("\n") + "\n\n";
+  } else if(overallIntent === "sell") {
+    defaultMessage += "I am interested in selling the following issues:\n\n";
+    defaultMessage += selectedSell.join("\n") + "\n\n";
+  } else {
+    defaultMessage += "I am interested in both buying and selling the following issues:\n\n";
+    if(selectedBuy.length > 0) {
+      defaultMessage += "Buy:\n" + selectedBuy.join("\n") + "\n\n";
+    }
+    if(selectedSell.length > 0) {
+      defaultMessage += "Sell:\n" + selectedSell.join("\n") + "\n\n";
+    }
+  }
+  defaultMessage += "Please let me know if you are interested.\n\nThank you.";
+  messageField.val(defaultMessage);
+}
+</script>
+
+<script>
+$(document).on("submit", ".send-message-form", function(e) {
+  e.preventDefault();
+  var form = $(this);
+  var formData = form.serialize();
+  $.ajax({
+    url: "sendMessage.php",
+    method: "POST",
+    data: formData,
+    dataType: "json",
+    success: function(response) {
+      if (response.status === 'success') {
+        alert("Message sent successfully.");
+        form[0].reset();
+      } else {
+        alert("Error: " + response.message);
+      }
+    },
+    error: function() {
+      alert("Failed to send message.");
+    }
+  });
+});
+</script>

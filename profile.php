@@ -330,7 +330,6 @@ if (!$currency) {
   <div class="tab-content" id="profileTabContent">
     <!-- Wanted List Tab -->
     <div class="tab-pane fade show active" id="wanted" role="tabpanel" aria-labelledby="wanted-tab">
-      <h2 class="mt-4">My Wanted Comics</h2>
       <?php if (empty($wantedSeries)): ?>
         <p>No wanted items found.</p>
       <?php else: ?>
@@ -374,7 +373,6 @@ if (!$currency) {
     
     <!-- Comics for Sale Tab -->
     <div class="tab-pane fade" id="selling" role="tabpanel" aria-labelledby="selling-tab">
-      <h2 class="mt-4">Comics for Sale</h2>
       <?php if (empty($saleGroups)): ?>
         <p>No comics listed for sale.</p>
       <?php else: ?>
@@ -422,7 +420,7 @@ if (!$currency) {
     
     <!-- Matches Tab -->
     <div class="tab-pane fade" id="matches" role="tabpanel" aria-labelledby="matches-tab">
-      <h2 class="mt-4">Your Matches</h2>
+      
       <?php if (empty($groupedMatches)): ?>
         <p>No matches found at this time.</p>
       <?php else: ?>

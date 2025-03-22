@@ -1,5 +1,9 @@
 <?php
-session_start();
+// Only start a session if one isn't already active.
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once 'db_connection.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -8,15 +12,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-
-// Determine which folder to show. Default is "inbox".
 $folder = isset($_GET['folder']) ? strtolower(trim($_GET['folder'])) : 'inbox';
-
-// Initialize an array to hold the conversations.
 $items = [];
 
 if ($folder == 'inbox') {
-    // In Inbox, the other party is the sender (if current user is recipient).
     $sql = "
         SELECT 
             pm.conversation_id, 
@@ -37,7 +36,6 @@ if ($folder == 'inbox') {
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("iiiii", $user_id, $user_id, $user_id, $user_id, $user_id);
 } elseif ($folder == 'sent') {
-    // In Sent, the other party is the recipient.
     $sql = "
         SELECT 
             pm.conversation_id, 
@@ -70,7 +68,6 @@ if ($folder == 'inbox') {
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("iiis", $user_id, $user_id, $user_id, $user_id);
 } else {
-    // drafts (placeholder)
     $items = [];
     $folder = 'drafts';
 }
@@ -83,7 +80,6 @@ if ($folder != 'drafts') {
     $stmt->close();
 }
 
-// Get user's currency from the users table.
 $currency = '';
 $stmtUser = $conn->prepare("SELECT currency FROM users WHERE id = ?");
 $stmtUser->bind_param("i", $user_id);
@@ -97,428 +93,219 @@ if (!$currency) {
     $currency = 'USD';
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Messenger - Conversations</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <style>
-    body {
-      background-color: #f5f6fa;
-    }
-    /* Provided snippet */
-    .cover-img {
-      width: 150px;
-      height: 225px;
-      object-fit: cover;
-      margin: 5px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .cover-wrapper {
-      position: relative;
-      display: inline-block;
-      width: 150px;
-    }
-    .remove-cover, .remove-sale {
-      position: absolute;
-      top: 2px;
-      right: 2px;
-      background: rgba(255,0,0,0.8);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      font-size: 12px;
-      cursor: pointer;
-      line-height: 18px;
-      text-align: center;
-      z-index: 10;
-    }
-    .edit-sale {
-      position: absolute;
-      top: 2px;
-      right: 26px;
-      background: rgba(0,123,255,0.8);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      font-size: 12px;
-      cursor: pointer;
-      line-height: 18px;
-      text-align: center;
-      z-index: 10;
-    }
-    .expand-row {
-      background-color: #f1f1f1;
-    }
-    .cover-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .popup-modal-body {
-      display: flex;
-      gap: 20px;
-    }
-    .popup-image-container img {
-      max-width: 100%;
-      max-height: 350px;
-      object-fit: contain;
-      cursor: pointer;
-    }
-    .popup-details-container table {
-      font-size: 1rem;
-    }
-    .similar-issues {
-      display: none;
-    }
-    .expand-match-row {
-      background-color: #f9f9f9;
-    }
-    .nested-table thead {
-      background-color: #eee;
-    }
-    #popupConditionRow,
-    #popupGradedRow,
-    #popupPriceRow {
-      display: none;
-    }
-    /* End snippet */
 
-    /* Left Column: Conversation List */
-    .conversation-list {
-      background: #fff;
-      border-right: 1px solid #dee2e6;
-      height: 100vh;
-      overflow-y: auto;
-    }
-    .conversation-item {
-      padding: 10px 15px;
-      border-bottom: 1px solid #e9ecef;
-      cursor: pointer;
-      transition: background-color 0.15s;
-      position: relative;
-    }
-    .conversation-item:hover {
-      background-color: #f1f1f1;
-    }
-    .conversation-item .sender {
-      font-weight: bold;
-      font-size: 1rem;
-    }
-    .conversation-item .time {
-      font-size: 0.8rem;
-      color: #6c757d;
-    }
-    .conversation-item .preview {
-      font-size: 0.9rem;
-      color: #555;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-top: 3px;
-    }
-    .delete-btn {
-      background: none;
-      border: none;
-      color: #dc3545;
-      float: right;
-      font-size: 1.2rem;
-      cursor: pointer;
-    }
-    .new-badge {
-      background-color: #17a2b8;
-      color: #fff;
-      padding: 2px 6px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-    }
-    /* Right Column: Conversation Details */
-    .thread-container {
-      background: #fff;
-      height: 100vh;
-      overflow-y: auto;
-      padding: 20px;
-    }
-    .thread-header {
-      border-bottom: 1px solid #dee2e6;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
-    }
-    .thread-header h5 {
-      margin: 0;
-      font-size: 1.1rem;
-    }
-    .thread-header small {
-      color: #6c757d;
-      font-size: 0.85rem;
-    }
-    .message-item {
-      margin-bottom: 15px;
-    }
-    .message-item .message-sender {
-      font-weight: bold;
-      font-size: 0.95rem;
-    }
-    .message-item .message-time {
-      font-size: 0.8rem;
-      color: #6c757d;
-    }
-    .message-item .message-body {
-      margin-top: 5px;
-      font-size: 0.95rem;
-      line-height: 1.4;
-      color: #333;
-    }
-    .attachment-thumb {
-      max-width: 80px;
-      max-height: 80px;
-      margin-top: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .reply-form {
-      border-top: 1px solid #dee2e6;
-      padding-top: 10px;
-      margin-top: 15px;
-    }
-    .reply-form textarea {
-      width: 100%;
-      resize: none;
-    }
-    .inbox-container {
-      height: 100vh;
-    }
-    /* Updated Modal CSS for Lightbox */
-    .modal-dialog {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        min-height: 100vh;
-        margin: auto !important;
-        max-width: none !important;
-    }
-    .modal-dialog.modal-dialog-centered {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        max-width: none !important;
-        width: auto !important;
-        height: auto !important;
-        margin: auto !important;
-    }
-    .modal-content {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        text-align: center;
-        width: auto !important;
-        height: auto !important;
-        max-width: 100vw !important;
-        max-height: 100vh !important;
-    }
-    .modal-body {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        width: auto !important;
-        height: auto !important;
-        padding: 0 !important;
-    }
-    .modal-carousel .carousel-item {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        width: auto !important;
-        height: auto !important;
-    }
-    .modal-carousel .carousel-item img {
-        width: auto !important;
-        height: auto !important;
-        max-width: 90vw !important;
-        max-height: 90vh !important;
-        object-fit: contain !important;
-    }
-    
-    /* Lightbox CSS */
-    .lightbox {
-        display: none;
-        position: fixed;
-        z-index: 9999;
-        padding-top: 10%;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.8);
-        text-align: center;
-    }
-    .lightbox-content {
-        max-width: 90%;
-        max-height: 90%;
-        margin: auto;
-        display: block;
-    }
-    .close-lightbox {
-        position: absolute;
-        top: 20px;
-        right: 30px;
-        color: white;
-        font-size: 35px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-    .prev-lightbox, .next-lightbox {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 30px;
-        color: white;
-        cursor: pointer;
-        user-select: none;
-    }
-    .prev-lightbox {
-        left: 15px;
-    }
-    .next-lightbox {
-        right: 15px;
-    }
-  </style>
-</head>
-<body class="bg-light">
+<!-- Include default header -->
 
-<div class="container my-4 inbox-container">
-  <div class="row">
-    <!-- Left Column: Conversation List -->
-    <div class="col-md-4 conversation-list p-0">
-      <div class="p-3 bg-primary text-white">
-        <h5 class="mb-0">Conversations</h5>
-        <!-- New Message button triggers the new thread view -->
-        <button id="newMessageBtn" class="btn btn-light btn-sm mt-2">New Message</button>
-      </div>
-      <?php if ($folder == 'inbox' || $folder == 'sent' || $folder == 'trash'): ?>
-        <?php if (empty($items)): ?>
-          <div class="p-3">No conversations found.</div>
-        <?php else: ?>
-          <?php foreach ($items as $conv): ?>
-            <div class="conversation-item" data-conv-id="<?php echo $conv['conversation_id']; ?>" data-recipient-id="<?php echo $conv['other_user_id']; ?>">
-              <button class="delete-btn" onclick="event.stopPropagation(); deleteConversation('<?php echo $conv['conversation_id']; ?>');">×</button>
-              <div class="sender"><?php echo htmlspecialchars($conv['other_user']); ?></div>
-              <div class="time"><?php echo date("M d, Y H:i", strtotime($conv['latest_msg_time'])); ?></div>
-              <div class="preview"><?php echo htmlspecialchars($conv['latest_message']); ?></div>
-              <?php if (isset($conv['unread_count']) && $conv['unread_count'] > 0): ?>
-                <div><span class="new-badge">New</span></div>
-              <?php endif; ?>
-            </div>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      <?php elseif ($folder == 'drafts'): ?>
-        <div class="p-3"><h5>Drafts</h5><p>No draft messages found.</p></div>
+
+<!-- CSS to set a fixed width for the left column and a fluid right column -->
+<style>
+  .messages-container {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 15px;
+  }
+  /* Left column fixed width (reduced to 200px) */
+  .left-column {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid #ddd;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+  }
+  /* Right column fluid */
+  .right-column {
+    flex-grow: 1;
+    max-width: calc(100% - 200px);
+    overflow-x: hidden;
+    padding-left: 15px;
+  }
+  /* Conversation List Styles */
+  .conversation-item {
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+  }
+  .conversation-item .fw-bold {
+    font-size: 1.1rem;
+  }
+  .conversation-item .small {
+    font-size: 0.9rem;
+  }
+  .conversation-item .text-truncate {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Chat Thread Container */
+  #conversationThread {
+    padding: 20px;
+    background-color: #ffffff;
+    overflow-x: hidden;
+  }
+  /* Message Bubble Base Style */
+  .message-item {
+    margin-bottom: 20px;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 80%;
+    word-wrap: break-word;
+  }
+  .message-item .fw-bold {
+    font-size: 1rem;
+    margin-bottom: 5px;
+  }
+  .message-item .small {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+  }
+  .message-item .message-body {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+  }
+  /* Sent messages (your messages) */
+  .message-item--sent {
+    background-color: #e0f7fa; /* light blue */
+    margin-left: auto;
+    text-align: right;
+  }
+  /* Received messages (other user's messages) */
+  .message-item--received {
+    background-color: #f1f8e9; /* light green */
+    margin-right: auto;
+    text-align: left;
+  }
+  /* Attachment Thumbnail */
+  .img-thumbnail {
+    width: 60px !important;
+    height: 60px !important;
+    object-fit: cover;
+    margin: 3px;
+    cursor: pointer;
+  }
+</style>
+
+<div class="messages-container">
+  <!-- Left Column: Conversation List -->
+  <div class="left-column">
+    <div class="bg-primary text-white p-3">
+      <button id="newMessageBtn" class="btn btn-light btn-sm mt-2">New Message</button>
+    </div>
+    <?php if ($folder == 'inbox' || $folder == 'sent' || $folder == 'trash'): ?>
+      <?php if (empty($items)): ?>
+        <div class="p-3">No conversations found.</div>
+      <?php else: ?>
+        <?php foreach ($items as $conv): ?>
+          <div class="conversation-item" data-conv-id="<?php echo $conv['conversation_id']; ?>" data-recipient-id="<?php echo $conv['other_user_id']; ?>" style="cursor:pointer;">
+            <button class="btn btn-link text-danger float-end p-0" onclick="event.stopPropagation(); deleteConversation('<?php echo $conv['conversation_id']; ?>');">×</button>
+            <div class="fw-bold"><?php echo htmlspecialchars($conv['other_user']); ?></div>
+            <div class="small text-muted"><?php echo date("M d, Y H:i", strtotime($conv['latest_msg_time'])); ?></div>
+            <div class="text-truncate"><?php echo htmlspecialchars($conv['latest_message']); ?></div>
+            <?php if (isset($conv['unread_count']) && $conv['unread_count'] > 0): ?>
+              <div><span class="badge bg-info">New</span></div>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
       <?php endif; ?>
+    <?php elseif ($folder == 'drafts'): ?>
+      <div class="p-3">
+        <h5>Drafts</h5>
+        <p>No draft messages found.</p>
+      </div>
+    <?php endif; ?>
+  </div>
+
+  <!-- Right Column: Conversation Details and Forms -->
+  <div class="right-column">
+    <div id="conversationThread" class="border p-3 mb-3" style="height:60vh; overflow-y:auto;">
+      <div class="mb-3 border-bottom pb-2">
+        <h5>Select a Conversation</h5>
+        <small>The conversation messages will appear here.</small>
+      </div>
+      <div class="text-muted">Please select a conversation from the list.</div>
     </div>
 
-    <!-- Right Column: Conversation Details and Forms -->
-    <div class="col-md-8 thread-container">
-      <div id="conversationThread">
-        <div class="thread-header">
-          <h5>Select a Conversation</h5>
-          <small>The conversation messages will appear here.</small>
+    <!-- Reply Form -->
+    <div id="replyFormContainer" class="mb-3" style="display:none;">
+      <form id="replyForm" enctype="multipart/form-data">
+        <div class="mb-2">
+          <textarea class="form-control" name="reply_message" id="replyMessage" rows="3" placeholder="Type your reply here..."></textarea>
         </div>
-        <div class="message-item">
-          <div class="message-body">Please select a conversation from the list.</div>
+        <div class="mb-2">
+          <input type="file" class="form-control" name="attachment[]" id="replyAttachment" multiple accept=".jpg, .jpeg, .png, .pdf, .webp">
         </div>
+        <button type="submit" class="btn btn-primary">Send Reply</button>
+      </form>
+    </div>
+
+    <!-- New Message Form -->
+    <div id="newMessageContainer" style="display:none;">
+      <div class="mb-3 border-bottom pb-2">
+        <h5>New Message</h5>
+        <small>Compose your message below.</small>
       </div>
-      <!-- Reply Form (for existing conversations) -->
-      <div id="replyFormContainer" class="reply-form" style="display:none;">
-        <form id="replyForm" enctype="multipart/form-data">
-          <!-- Hidden fields for conversation_id and recipient_id will be added via JS -->
-          <div class="mb-2">
-            <textarea class="form-control" name="reply_message" id="replyMessage" rows="3" placeholder="Type your reply here..."></textarea>
-          </div>
-          <div class="mb-2">
-            <input type="file" class="form-control-file" name="attachment[]" id="replyAttachment" multiple accept=".jpg, .jpeg, .png, .pdf, .webp">
-          </div>
-          <button type="submit" class="btn btn-primary">Send Reply</button>
-        </form>
-      </div>
-      <!-- New Message Form Container (for starting a new conversation) -->
-      <div id="newMessageContainer" style="display:none;">
-        <!-- New Message view styled like conversation view -->
-        <div class="thread-header">
-          <h5>New Message</h5>
-          <small>Compose your message below.</small>
+      <form id="newMessageForm" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="recipient" class="form-label">Select Recipient</label>
+          <select name="recipient_id" id="recipient" class="form-select" required>
+            <option value="">-- Select Contact --</option>
+            <?php
+            $sqlUsers = "SELECT id, username FROM users WHERE id != ?";
+            $stmtUsers = $conn->prepare($sqlUsers);
+            $stmtUsers->bind_param("i", $user_id);
+            $stmtUsers->execute();
+            $resultUsers = $stmtUsers->get_result();
+            while ($user = $resultUsers->fetch_assoc()):
+            ?>
+            <option value="<?php echo $user['id']; ?>"><?php echo htmlspecialchars($user['username']); ?></option>
+            <?php endwhile; $stmtUsers->close(); ?>
+          </select>
         </div>
-        <form id="newMessageForm" enctype="multipart/form-data">
-          <div class="mb-3">
-            <label for="recipient" class="form-label">Select Recipient</label>
-            <select name="recipient_id" id="recipient" class="form-control" required>
-              <option value="">-- Select Contact --</option>
-              <?php
-              // Optional: Fetch only past contacts if available.
-              // For now, we list all users except the current user.
-              $sqlUsers = "SELECT id, username FROM users WHERE id != ?";
-              $stmtUsers = $conn->prepare($sqlUsers);
-              $stmtUsers->bind_param("i", $user_id);
-              $stmtUsers->execute();
-              $resultUsers = $stmtUsers->get_result();
-              while ($user = $resultUsers->fetch_assoc()):
-              ?>
-              <option value="<?php echo $user['id']; ?>"><?php echo htmlspecialchars($user['username']); ?></option>
-              <?php endwhile; $stmtUsers->close(); ?>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label for="newMessage" class="form-label">Message</label>
-            <textarea name="message" id="newMessage" class="form-control" rows="4" required></textarea>
-          </div>
-          <div class="mb-3">
-            <input type="file" name="attachment[]" id="newMessageAttachment" class="form-control-file" multiple accept=".jpg, .jpeg, .png, .pdf, .webp">
-          </div>
-          <button type="submit" class="btn btn-primary">Send Message</button>
-        </form>
-      </div>
+        <div class="mb-3">
+          <label for="newMessage" class="form-label">Message</label>
+          <textarea name="message" id="newMessage" class="form-control" rows="4" required></textarea>
+        </div>
+        <div class="mb-3">
+          <input type="file" name="attachment[]" id="newMessageAttachment" class="form-control" multiple accept=".jpg, .jpeg, .png, .pdf, .webp">
+        </div>
+        <button type="submit" class="btn btn-primary">Send Message</button>
+      </form>
     </div>
   </div>
 </div>
 
-<!-- Lightbox Modal for Attachments (New Lightbox Implementation) -->
-<div id="imageLightbox" class="lightbox">
-    <span class="close-lightbox" onclick="closeLightbox()">&times;</span>
-    <img class="lightbox-content" id="lightboxImg">
-    <a class="prev-lightbox" onclick="changeImage(-1)">&#10094;</a>
-    <a class="next-lightbox" onclick="changeImage(1)">&#10095;</a>
+<!-- Lightbox Modal for Attachments -->
+<div id="imageLightbox" class="modal" tabindex="-1" style="display:none;">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <span class="btn-close position-absolute top-0 end-0 m-3" onclick="closeLightbox()"></span>
+      <img class="img-fluid" id="lightboxImg" alt="Attachment">
+      <button class="btn btn-secondary position-absolute start-0 top-50 translate-middle-y" onclick="changeImage(-1)">&#10094;</button>
+      <button class="btn btn-secondary position-absolute end-0 top-50 translate-middle-y" onclick="changeImage(1)">&#10095;</button>
+    </div>
+  </div>
 </div>
 
 <!-- Required JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
 <script>
-  // When a conversation item is clicked, load its details into the right column.
   $(document).on("click", ".conversation-item", function() {
-    // Hide new message form if visible.
     $("#newMessageContainer").hide();
     $("#replyFormContainer").show();
     
     var convId = $(this).data("conv-id");
     var recipientId = $(this).data("recipient-id");
 
-    // Remove old hidden fields and insert new ones
     $("#replyForm input[type='hidden']").remove();
     $("#replyForm").prepend('<input type="hidden" name="conversation_id" value="'+convId+'">');
     $("#replyForm").prepend('<input type="hidden" name="recipient_id" value="'+recipientId+'">');
 
-    // Load conversation messages
-    $("#conversationThread").html("<p style='text-align:center; padding:20px;'>Loading conversation...</p>");
+    $("#conversationThread").html("<p class='text-center py-4'>Loading conversation...</p>");
     $.ajax({
         url: "conversation.php",
         method: "GET",
@@ -533,12 +320,11 @@ if (!$currency) {
             }, 500);
         },
         error: function() {
-            $("#conversationThread").html("<p class='text-danger' style='text-align:center;'>Failed to load conversation.</p>");
+            $("#conversationThread").html("<p class='text-danger text-center'>Failed to load conversation.</p>");
         }
     });
 
-    // Remove unread badge
-    $(this).find(".new-badge").remove();
+    $(this).find(".badge").remove();
     $.ajax({
         url: "markRead.php",
         method: "POST",
@@ -546,16 +332,12 @@ if (!$currency) {
     });
   });
 
-  // New Message Button Click: Show new message form styled like the conversation view.
   $("#newMessageBtn").on("click", function() {
-    // Hide conversation thread and reply form.
     $("#conversationThread").html("");
     $("#replyFormContainer").hide();
-    // Show the new message form container.
     $("#newMessageContainer").show();
   });
 
-  // Handle new message form submission; send message to DB and then load the conversation.
   $("#newMessageForm").on("submit", function(e) {
     e.preventDefault();
     var formData = new FormData(this);
@@ -568,7 +350,6 @@ if (!$currency) {
       dataType: 'json',
       success: function(response) {
         if (response.status === 'success') {
-          // After sending the new message, load the conversation in the right column.
           var convId = response.conversation_id;
           $.ajax({
             url: "conversation.php",
@@ -578,15 +359,13 @@ if (!$currency) {
               $("#conversationThread").html(convResponse);
               $("#replyFormContainer").show();
               $("#newMessageContainer").hide();
-              // Set hidden fields for reply form.
               $("#replyForm input[type='hidden']").remove();
               $("#replyForm").prepend('<input type="hidden" name="conversation_id" value="'+convId+'">');
-              // Scroll to the bottom after loading.
               setTimeout(() => {
-                  var thread = document.getElementById("conversationThread");
-                  if (thread) {
-                      thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
-                  }
+                var thread = document.getElementById("conversationThread");
+                if (thread) {
+                  thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
+                }
               }, 500);
             },
             error: function() {
@@ -603,7 +382,6 @@ if (!$currency) {
     });
   });
 
-  // Delegate reply form submission (for existing conversations)
   $(document).on("submit", "#replyForm", function(e) {
     e.preventDefault();
     var formData = new FormData(this);
@@ -617,15 +395,14 @@ if (!$currency) {
       success: function(response) {
         if (response.status === 'success') {
           var newMessageHtml = `
-            <div class="message-item">
-              <div class="message-sender">You</div>
-              <div class="message-time">${response.timestamp}</div>
-              <div class="message-body">${response.message}</div>
-          `;
+            <div class="message-item message-item--sent">
+              <div class="fw-bold">You</div>
+              <div class="small text-muted">${response.timestamp}</div>
+              <div class="message-body">${response.message}</div>`;
           if (response.attachments && response.attachments.length > 0) {
-            var attachmentsHtml = "<div class='attachment-container' data-attachments='" + JSON.stringify(response.attachments) + "' style='margin-top:10px;'>";
+            var attachmentsHtml = "<div class='mt-2' data-attachments='" + JSON.stringify(response.attachments) + "'>";
             response.attachments.forEach(function(file) {
-              attachmentsHtml += "<img src='uploads/" + file + "' class='attachment-thumb' alt='Attachment' style='margin-right:5px;'>";
+              attachmentsHtml += "<img src='uploads/" + file + "' class='img-thumbnail me-1' alt='Attachment'>";
             });
             attachmentsHtml += "</div>";
             newMessageHtml += attachmentsHtml;
@@ -645,7 +422,6 @@ if (!$currency) {
     });
   });
 
-  // Delete conversation via AJAX.
   function deleteConversation(convId) {
     if (confirm("Are you sure you want to delete this conversation?")) {
       $.ajax({
@@ -662,39 +438,16 @@ if (!$currency) {
     }
   }
 
-  // Delegate click event on attachment container to open the Lightbox.
-  $(document).on("click", ".attachment-container", function() {
-    var attachmentsArray = $(this).data("attachments");
-    if (attachmentsArray && attachmentsArray.length > 0) {
-      openLightbox(0, attachmentsArray);
-    }
-  });
-
-  // If user clicks directly on an image (and not the container).
-  $(document).on("click", ".attachment-thumb", function(e) {
-    e.stopPropagation();
-    var container = $(this).closest(".attachment-container");
-    var attachmentsArray;
-    if (container.length) {
-      attachmentsArray = container.data("attachments");
-    } else {
-      attachmentsArray = [$(this).attr("src").replace('uploads/', '')];
-    }
-    var index = $(this).index();
-    openLightbox(index, attachmentsArray);
-  });
-
-  // Lightbox functions
   let imagesArray = [];
   let currentIndex = 0;
   function openLightbox(index, attachmentsArray) {
     imagesArray = attachmentsArray;
     currentIndex = index;
     document.getElementById("lightboxImg").src = "uploads/" + imagesArray[currentIndex];
-    document.getElementById("imageLightbox").style.display = "block";
+    $("#imageLightbox").show();
   }
   function closeLightbox() {
-    document.getElementById("imageLightbox").style.display = "none";
+    $("#imageLightbox").hide();
   }
   function changeImage(direction) {
     currentIndex += direction;
@@ -705,6 +458,12 @@ if (!$currency) {
     }
     document.getElementById("lightboxImg").src = "uploads/" + imagesArray[currentIndex];
   }
+
+  $(document).on("click", ".img-thumbnail", function(e) {
+    e.stopPropagation();
+    var container = $(this).closest("[data-attachments]");
+    var attachmentsArray = container ? container.data("attachments") : [$(this).attr("src").replace('uploads/', '')];
+    var index = $(this).index();
+    openLightbox(index, attachmentsArray);
+  });
 </script>
-</body>
-</html>

@@ -1,11 +1,17 @@
 <?php
 // profile_content_inner.php
 
-// This file expects that session and DB setup are already done in the parent page.
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once __DIR__ . '/../db_connection.php';
+
 if (!isset($_SESSION['user_id'])) {
     echo "<p>Please log in.</p>";
     return;
 }
+
 $user_id = $_SESSION['user_id'] ?? 0;
 
 // Capture and immediately unset any flash messages so they are used only once.
@@ -205,6 +211,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" name="city" id="city" class="form-control" value="<?= htmlspecialchars($user['city']) ?>" required>
                 <button type="button" class="btn btn-outline-secondary" id="detectLocation">Detect My Location</button>
               </div>
+              <!-- New status message area -->
+              <div id="locationStatus" style="margin-top: 5px; font-size: 0.9em; color: #007bff;"></div>
             </div>
             <div class="mb-3">
               <label class="form-label">About Me</label>
@@ -306,14 +314,22 @@ $("#profileForm").submit(function(e) {
   e.preventDefault();
   var formData = new FormData(this);
   $.ajax({
-    url: '', // current URL
+    url: '', // current URL will handle the POST
     type: 'POST',
     data: formData,
     contentType: false,
     processData: false,
     success: function(response) {
-      // After the POST, perform a GET request with a timestamp to avoid caching
-      $.get("profile_content_inner.php", { t: new Date().getTime() }, function(html) {
+      $("#profileContentContainer").prepend('<div class="alert alert-success" id="flashMessage">Profile updated successfully.</div>');
+      setTimeout(function(){
+        var flash = document.getElementById("flashMessage");
+        if (flash) {
+          flash.style.transition = "opacity 0.5s ease-out";
+          flash.style.opacity = 0;
+          setTimeout(function(){ flash.remove(); }, 500);
+        }
+      }, 3000);
+      $.get("includes/profile_content_inner.php", { t: new Date().getTime() }, function(html) {
         $("#profileContentContainer").html(html);
       });
     },
@@ -323,21 +339,15 @@ $("#profileForm").submit(function(e) {
   });
 });
 
-// Immediately remove flash message after a delay
-setTimeout(function(){
-  var flash = document.getElementById("flashMessage");
-  if (flash) {
-    flash.style.transition = "opacity 0.5s ease-out";
-    flash.style.opacity = 0;
-    setTimeout(function(){ flash.remove(); }, 500);
-  }
-}, 3000);
-
 // Location Detection Script
 document.getElementById("detectLocation").addEventListener("click", function() {
+  // Update status message immediately
+  document.getElementById("locationStatus").innerText = "Getting your location, please wait...";
+  
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(successCallback, errorCallback);
   } else {
+    document.getElementById("locationStatus").innerText = "";
     alert("Geolocation is not supported by this browser.");
   }
 });
@@ -345,34 +355,48 @@ document.getElementById("detectLocation").addEventListener("click", function() {
 function successCallback(position) {
   var lat = position.coords.latitude;
   var lng = position.coords.longitude;
-  var geocoder = new google.maps.Geocoder();
-  var latlng = {lat: lat, lng: lng};
-  geocoder.geocode({'location': latlng}, function(results, status) {
-    if (status === 'OK') {
-      if (results[0]) {
-        var city = "";
-        for (var i = 0; i < results[0].address_components.length; i++) {
-          var component = results[0].address_components[i];
-          if (component.types.indexOf('locality') > -1) {
-            city = component.long_name;
-            break;
+  
+  if (typeof google !== "undefined" && google.maps) {
+    var geocoder = new google.maps.Geocoder();
+    var latlng = {lat: lat, lng: lng};
+    geocoder.geocode({'location': latlng}, function(results, status) {
+      if (status === 'OK') {
+        if (results[0]) {
+          var city = "";
+          for (var i = 0; i < results[0].address_components.length; i++) {
+            var component = results[0].address_components[i];
+            if (component.types.indexOf('locality') > -1) {
+              city = component.long_name;
+              break;
+            }
           }
-        }
-        if (city) {
-          document.getElementById('city').value = city;
+          if (city) {
+            document.getElementById('city').value = city;
+            document.getElementById("locationStatus").innerText = "Location detected: " + city;
+          } else {
+            document.getElementById("locationStatus").innerText = "";
+            alert("City not found.");
+          }
         } else {
-          alert("City not found.");
+          document.getElementById("locationStatus").innerText = "";
+          alert("No results found.");
         }
       } else {
-        alert("No results found.");
+        document.getElementById("locationStatus").innerText = "";
+        alert("Geocoder failed due to: " + status);
       }
-    } else {
-      alert("Geocoder failed due to: " + status);
-    }
-  });
+    });
+  } else {
+    document.getElementById("locationStatus").innerText = "";
+    alert("Google Maps API is not loaded.");
+  }
 }
 
 function errorCallback(error) {
+  document.getElementById("locationStatus").innerText = "";
   alert("Error getting location: " + error.message);
 }
 </script>
+
+<!-- Include Google Maps API -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBQ_S-MNLPXfeguaEQ1dOpww8vAo9bXJIw&libraries=places"></script>
