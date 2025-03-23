@@ -74,6 +74,122 @@
       <?php endif; ?>
     </div>
 
+    <!-- Edit Comic Modal -->
+<div class="modal fade" id="editSaleModal" tabindex="-1" aria-labelledby="editSaleModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editSaleForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editSaleModalLabel">Edit Sale Listing</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="listing_id" id="editListingId">
+          <div class="mb-3">
+            <label for="editPrice" class="form-label">Price</label>
+            <input type="number" class="form-control" id="editPrice" name="price" required>
+          </div>
+          <div class="mb-3">
+            <label for="editCondition" class="form-label">Condition</label>
+            <select class="form-select" id="editCondition" name="condition" required>
+  <option value="">Select Condition</option>
+  <option value="10">10 (Gem Mint)</option>
+  <option value="9.9">9.9 (Mint)</option>
+  <option value="9.8">9.8 (Near Mint/Mint)</option>
+  <option value="9.6">9.6 (Near Mint+)</option>
+  <option value="9.4">9.4 (Near Mint)</option>
+  <option value="9.2">9.2 (Near Mint–)</option>
+  <option value="9.0">9.0 (Very Fine/Near Mint)</option>
+  <option value="8.5">8.5 (Very Fine+)</option>
+  <option value="8.0">8.0 (Very Fine)</option>
+  <option value="7.5">7.5 (Very Fine–)</option>
+  <option value="7.0">7.0 (Fine/Very Fine)</option>
+  <option value="6.5">6.5 (Fine+)</option>
+  <option value="6.0">6.0 (Fine)</option>
+  <option value="5.5">5.5 (Fine–)</option>
+  <option value="5.0">5.0 (Very Good/Fine)</option>
+  <option value="4.5">4.5 (Very Good+)</option>
+  <option value="4.0">4.0 (Very Good)</option>
+  <option value="3.5">3.5 (Very Good–)</option>
+  <option value="3.0">3.0 (Good/Very Good)</option>
+  <option value="2.5">2.5 (Good+)</option>
+  <option value="2.0">2.0 (Good)</option>
+  <option value="1.8">1.8 (Good–)</option>
+  <option value="1.5">1.5 (Fair/Good)</option>
+  <option value="1.0">1.0 (Fair)</option>
+  <option value="0.5">0.5 (Poor)</option>
+</select>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- Bulk Edit Modal -->
+<div class="modal fade" id="bulkEditModal" tabindex="-1" aria-labelledby="bulkEditModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="bulkEditForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bulkEditModalLabel">Bulk Edit Series</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="comic_title" id="bulkComicTitle">
+          <input type="hidden" name="years" id="bulkYears">
+          <div class="mb-3">
+            <label for="bulkPrice" class="form-label">New Price</label>
+            <input type="number" class="form-control" id="bulkPrice" name="price" required>
+          </div>
+          <div class="mb-3">
+  <label for="bulkCondition" class="form-label">New Condition</label>
+  <select class="form-select" id="bulkCondition" name="condition" required>
+    <option value="">Select Condition</option>
+    <option value="10">10 (Gem Mint)</option>
+    <option value="9.9">9.9 (Mint)</option>
+    <option value="9.8">9.8 (Near Mint/Mint)</option>
+    <option value="9.6">9.6 (Near Mint+)</option>
+    <option value="9.4">9.4 (Near Mint)</option>
+    <option value="9.2">9.2 (Near Mint–)</option>
+    <option value="9.0">9.0 (Very Fine/Near Mint)</option>
+    <option value="8.5">8.5 (Very Fine+)</option>
+    <option value="8.0">8.0 (Very Fine)</option>
+    <option value="7.5">7.5 (Very Fine–)</option>
+    <option value="7.0">7.0 (Fine/Very Fine)</option>
+    <option value="6.5">6.5 (Fine+)</option>
+    <option value="6.0">6.0 (Fine)</option>
+    <option value="5.5">5.5 (Fine–)</option>
+    <option value="5.0">5.0 (Very Good/Fine)</option>
+    <option value="4.5">4.5 (Very Good+)</option>
+    <option value="4.0">4.0 (Very Good)</option>
+    <option value="3.5">3.5 (Very Good–)</option>
+    <option value="3.0">3.0 (Good/Very Good)</option>
+    <option value="2.5">2.5 (Good+)</option>
+    <option value="2.0">2.0 (Good)</option>
+    <option value="1.8">1.8 (Good–)</option>
+    <option value="1.5">1.5 (Fair/Good)</option>
+    <option value="1.0">1.0 (Fair)</option>
+    <option value="0.5">0.5 (Poor)</option>
+  </select>
+</div>
+
+
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Apply to All</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
     <!-- COMICS FOR SALE TAB -->
     <div class="tab-pane fade" id="selling" role="tabpanel">
       <?php if (empty($saleGroups)): ?>

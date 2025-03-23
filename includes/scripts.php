@@ -50,23 +50,44 @@ $(document).on("click", ".remove-sale", function() {
   }
 });
 
-
-// Edit Sale Comic
-$(document).on("click", ".edit-sale", function (e) {
+// BULK EDIT SALE
+$(document).on("click", ".bulk-edit-btn", function (e) {
   e.preventDefault();
   const comicTitle = $(this).data("comic-title");
   const years = $(this).data("years");
-  const issueNumber = $(this).data("issue-number");
-  window.open(`editSale.php?comic_title=${encodeURIComponent(comicTitle)}&years=${encodeURIComponent(years)}&issue_number=${encodeURIComponent(issueNumber)}`, "_blank");
+
+  $("#bulkComicTitle").val(comicTitle);
+  $("#bulkYears").val(years);
+  $("#bulkPrice").val("");       // Clear previous
+  $("#bulkCondition").val("");   // Clear previous
+
+  const bulkModal = new bootstrap.Modal(document.getElementById("bulkEditModal"));
+  bulkModal.show();
 });
 
-// Bulk Edit Sale Series
-$(document).on("click", ".bulk-edit-sale", function (e) {
+$("#bulkEditForm").on("submit", function (e) {
   e.preventDefault();
-  const comicTitle = $(this).data("comic-title");
-  const years = $(this).data("years");
-  window.open(`editSaleBulk.php?comic_title=${encodeURIComponent(comicTitle)}&years=${encodeURIComponent(years)}`, "_blank");
+  const form = $(this);
+  $.ajax({
+    url: "editSaleBulk.php",
+    type: "POST",
+    data: form.serialize(),
+    dataType: "json",
+    success: function (response) {
+      if (response.status === "success") {
+        alert("Bulk update successful.");
+        location.reload(); // Optionally reload only the updated section
+      } else {
+        alert(response.message || "Update failed.");
+      }
+    },
+    error: function () {
+      alert("Server error during bulk update.");
+    }
+  });
 });
+
+
 
 
 // Function to update tab buttons dynamically.
@@ -635,15 +656,7 @@ $(document).on("click", ".cover-img", function(e) {
     });
   });
 
-  $(document).on("click", ".expand-match-btn", function() {
-    var otherUserId = $(this).data("other-user-id");
-    var rowSelector = "#expand-match-" + otherUserId;
-    if ($(rowSelector).is(":visible")) {
-      $(rowSelector).slideUp();
-    } else {
-      $(rowSelector).slideDown();
-    }
-  });
+  
 
   $(document).on("click", ".send-message-btn", function(e) {
     var recipientId = $(this).data("other-user-id");
@@ -731,4 +744,56 @@ $(document).on("click", ".cover-img", function(e) {
     searchOffcanvas.show();
   });
 });
+
+// 🛠️ EDIT SALE BUTTON HANDLER
+$(document).on("click", ".edit-sale", function (e) {
+  e.preventDefault();
+  const wrapper = $(this).closest(".cover-wrapper");
+  const listingId = $(this).data("listing-id");
+  const priceRaw = wrapper.data("price") || "";
+  const price = priceRaw.toString().replace(/[^0-9.]/g, '');
+  const condition = wrapper.data("condition") || "";
+
+  $("#editListingId").val(listingId);
+  $("#editPrice").val(price);
+  $("#editCondition").val(condition);
+
+  const modal = new bootstrap.Modal(document.getElementById("editSaleModal"));
+  modal.show();
+});
+
+// 🛠️ FORM SUBMIT HANDLER
+$("#editSaleForm").on("submit", function (e) {
+  e.preventDefault();
+  const form = $(this);
+  $.ajax({
+    url: "editSale.php",
+    type: "POST",
+    data: form.serialize(),
+    dataType: "json",
+    success: function (response) {
+      if (response.status === "success") {
+        alert("Updated successfully");
+        location.reload(); // Optional: Replace with AJAX refresh logic
+      } else {
+        alert(response.message || "Update failed.");
+      }
+    },
+    error: function () {
+      alert("Server error during update.");
+    }
+  });
+});
+
+// Allow single accordion to toggle open/close on repeated clicks
+$(document).on("click", "[data-bs-toggle='collapse']", function (e) {
+  var target = $($(this).attr("data-bs-target"));
+  if (target.hasClass("show")) {
+    target.collapse("hide");
+  } else {
+    target.collapse("show");
+  }
+});
+
+
 </script>

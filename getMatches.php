@@ -29,6 +29,7 @@ $sqlMatches = "
     LEFT JOIN comics c 
         ON TRIM(mn.issue_url) = TRIM(c.issue_url)
     WHERE (mn.buyer_id = ? OR mn.seller_id = ?)
+      AND mn.status IN ('new', 'viewed')
     ORDER BY mn.match_time DESC
 ";
 $stmtMatches = $conn->prepare($sqlMatches);

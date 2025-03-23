@@ -131,10 +131,12 @@ while ($row = $result->fetch_assoc()) {
     
     $output .= '<button class="edit-sale" 
     style="position: absolute; top: 2px; right: 26px; background: rgba(0,123,255,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" 
+    data-listing-id="' . htmlspecialchars($listing_id) . '"
     data-comic-title="' . htmlspecialchars($comic_title) . '" 
     data-years="' . htmlspecialchars($years) . '" 
     data-issue-number="' . htmlspecialchars($issue) . '" 
     title="Edit">E</button>';
+
     
     $output .= '<button class="remove-sale" 
     style="position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" 
