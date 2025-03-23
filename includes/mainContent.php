@@ -200,7 +200,7 @@
                                        data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
                                        data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
                                        data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
-                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? ''); ?>"
+                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? 'N/A'); ?>"
                                        data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? ''); ?>"
                                        data-graded="<?php echo htmlspecialchars(($m['graded'] ?? '') == '1' ? 'Yes' : 'No'); ?>"
                                        data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>">
@@ -216,7 +216,7 @@
                         </table>
                       <?php endif; ?>
                     </div>
-                    <!-- Sell Tab Content (Modified to use full data attributes) -->
+                    <!-- Sell Tab Content -->
                     <div class="tab-pane fade" id="sell-<?php echo $otherUserId; ?>" role="tabpanel">
                       <?php if (empty($sellMatches)): ?>
                         <p>No comics available to sell.</p>
@@ -246,7 +246,7 @@
                                        data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
                                        data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
                                        data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
-                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? ''); ?>"
+                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? 'N/A'); ?>"
                                        data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? ''); ?>"
                                        data-graded="<?php echo htmlspecialchars(($m['graded'] ?? '') == '1' ? 'Yes' : 'No'); ?>"
                                        data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>">

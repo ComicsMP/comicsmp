@@ -13,7 +13,63 @@ document.addEventListener("DOMContentLoaded", () => {
   // Create offcanvas instance so we can close it on year selection.
   var searchOffcanvas = new bootstrap.Offcanvas(document.getElementById('searchFiltersOffcanvas'));
 
-  // Function to update tab buttons dynamically.
+  // 🔥 DELETE FROM WANTED
+  $(document).on("click", ".remove-cover", function() {
+    const btn = $(this);
+    const comicTitle = btn.data("comic-title");
+    const issueNumber = btn.data("issue-number");
+    const years = btn.data("years");
+    const issueUrl = btn.data("issue_url");
+
+    if (confirm("Are you sure you want to remove this from your Wanted list?")) {
+      $.post("deletewanted.php", {
+        comic_title: comicTitle,
+        issue_number: issueNumber,
+        years: years,
+        issue_url: issueUrl
+      }, function(response) {
+        btn.closest(".cover-wrapper").fadeOut();
+      }).fail(function() {
+        alert("Failed to delete from Wanted list.");
+      });
+    }
+  });
+
+  // 🔥 DELETE FROM SALE
+$(document).on("click", ".remove-sale", function() {
+  const btn = $(this);
+  const listingId = btn.data("listing-id");
+
+  if (confirm("Are you sure you want to remove this comic from your Sale list?")) {
+    $.post("deletesale.php", { listing_id: listingId }, function(response) {
+      // You can also inspect the response if needed
+      btn.closest(".cover-wrapper").fadeOut();
+    }).fail(function() {
+      alert("Failed to delete from Sale list.");
+    });
+  }
+});
+
+
+// Edit Sale Comic
+$(document).on("click", ".edit-sale", function (e) {
+  e.preventDefault();
+  const comicTitle = $(this).data("comic-title");
+  const years = $(this).data("years");
+  const issueNumber = $(this).data("issue-number");
+  window.open(`editSale.php?comic_title=${encodeURIComponent(comicTitle)}&years=${encodeURIComponent(years)}&issue_number=${encodeURIComponent(issueNumber)}`, "_blank");
+});
+
+// Bulk Edit Sale Series
+$(document).on("click", ".bulk-edit-sale", function (e) {
+  e.preventDefault();
+  const comicTitle = $(this).data("comic-title");
+  const years = $(this).data("years");
+  window.open(`editSaleBulk.php?comic_title=${encodeURIComponent(comicTitle)}&years=${encodeURIComponent(years)}`, "_blank");
+});
+
+
+// Function to update tab buttons dynamically.
   function updateTabButtons(title) {
     const selectedYear = $("#yearSelect").val();
     if (!selectedYear) {
@@ -396,55 +452,62 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Popup Modal for Cover Image in Gallery Items.
-  $(document).on("click", ".gallery-item img", function(e) {
-    if ($(e.target).closest("button").length) return;
-    const parent = $(this).closest(".gallery-item");
-    const fullImageUrl = $(this).attr("src");
-    const comicTitle = parent.data("comic-title") || "N/A";
-    const years = parent.data("years") || "N/A";
-    const issueNumber = parent.data("issue-number") || "N/A";
-    const tab = parent.data("tab") || "N/A";
-    const variant = parent.data("variant") || "N/A";
-    const date = parent.attr("data-date") || "N/A";
-    $("#popupMainImage").attr("src", fullImageUrl);
-    $("#popupComicTitle").text(comicTitle);
-    $("#popupYears").text(years);
-    $("#popupIssueNumber").text(issueNumber);
-    $("#popupTab").text(tab);
-    $("#popupVariant").text(variant);
-    $("#popupDate").text(date);
-    const upc = parent.data("upc") || "N/A";
-    $("#popupUPC").text(upc);
-    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
-    loadSimilarIssues(comicTitle, years, issueNumber, false);
-    var modalEl = document.getElementById("coverPopupModal");
-    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modalInstance.show();
-  });
+$(document).on("click", ".gallery-item img", function(e) {
+  if ($(e.target).closest("button").length) return;
+  // Show similar issues for search results
+  $(".similar-issues").show();
+  const parent = $(this).closest(".gallery-item");
+  const fullImageUrl = $(this).attr("src");
+  const comicTitle = parent.data("comic-title") || "N/A";
+  const years = parent.data("years") || "N/A";
+  const issueNumber = parent.data("issue-number") || "N/A";
+  const tab = parent.data("tab") || "N/A";
+  const variant = parent.data("variant") || "N/A";
+  const date = parent.attr("data-date") || "N/A";
+  $("#popupMainImage").attr("src", fullImageUrl);
+  $("#popupComicTitle").text(comicTitle);
+  $("#popupYears").text(years);
+  $("#popupIssueNumber").text(issueNumber);
+  $("#popupTab").text(tab);
+  $("#popupVariant").text(variant);
+  $("#popupDate").text(date);
+  const upc = parent.data("upc") || "N/A";
+  $("#popupUPC").text(upc);
+  $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
+  // Load similar issues for search results
+  loadSimilarIssues(comicTitle, years, issueNumber, false);
+  var modalEl = document.getElementById("coverPopupModal");
+  var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+  modalInstance.show();
+});
 
-  // Popup Modal for Cover Image in Wanted/Sale Covers.
-  $(document).on("click", ".cover-img", function(e) {
-    e.preventDefault();
-    var $wrapper = $(this).closest(".cover-wrapper");
-    var comicTitle = $wrapper.data("comic-title") || "N/A";
-    var years = $wrapper.data("years") || "N/A";
-    var issueNumber = $wrapper.data("issue-number") || "N/A";
-    var tab = $wrapper.data("tab") || "N/A";
-    var variant = $wrapper.data("variant") || "N/A";
-    var date = $wrapper.data("date") || "N/A";
-    var upc = $wrapper.data("upc") || "N/A";
-    $("#popupMainImage").attr("src", $(this).attr("src"));
-    $("#popupComicTitle").text(comicTitle);
-    $("#popupYears").text(years);
-    $("#popupIssueNumber").text(issueNumber);
-    $("#popupTab").text(tab);
-    $("#popupVariant").text(variant);
-    $("#popupDate").text(date);
-    $("#popupUPC").text(upc);
-    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
-    var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
-    modal.show();
-  });
+
+ // Popup Modal for Cover Image in Wanted/Sale Covers.
+$(document).on("click", ".cover-img", function(e) {
+  e.preventDefault();
+  // Hide similar issues for wanted/sale covers
+  $(".similar-issues").hide();
+  var $wrapper = $(this).closest(".cover-wrapper");
+  var comicTitle = $wrapper.data("comic-title") || "N/A";
+  var years = $wrapper.data("years") || "N/A";
+  var issueNumber = $wrapper.data("issue-number") || "N/A";
+  var tab = $wrapper.data("tab") || "N/A";
+  var variant = $wrapper.data("variant") || "N/A";
+  var date = $wrapper.data("date") || "N/A";
+  var upc = $wrapper.data("upc") || "N/A";
+  $("#popupMainImage").attr("src", $(this).attr("src"));
+  $("#popupComicTitle").text(comicTitle);
+  $("#popupYears").text(years);
+  $("#popupIssueNumber").text(issueNumber);
+  $("#popupTab").text(tab);
+  $("#popupVariant").text(variant);
+  $("#popupDate").text(date);
+  $("#popupUPC").text(upc);
+  $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
+  var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
+  modal.show();
+});
+
 
   // Popup Modal for Match Cover Images.
   $(document).on("click", ".match-cover-img", function(e) {
@@ -458,6 +521,7 @@ document.addEventListener("DOMContentLoaded", () => {
     var condition = $img.data("condition") || "N/A";
     var graded = $img.data("graded") || "N/A";
     var price = $img.data("price") || "N/A";
+    $(".similar-issues").hide();
     $("#popupMainImage").attr("src", src);
     $("#popupComicTitle").text(comicTitle);
     $("#popupYears").text(years);
@@ -477,6 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
         $("#popupTab").text(data.Tab || "N/A");
         $("#popupVariant").text(data.Variant || "N/A");
         $("#popupDate").text(data.Date || "N/A");
+        $("#popupUPC").text(data.upc || "N/A");  // <-- Add this line
         if(data.comic_condition) { $("#popupCondition").text(data.comic_condition); }
         if(data.graded) { $("#popupGraded").text(data.graded); }
         if(data.price) { $("#popupPrice").text(data.price); }

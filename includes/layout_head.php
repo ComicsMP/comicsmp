@@ -77,7 +77,7 @@
     .button-wrapper button { padding: 0.4rem 0.8rem; font-size: 0.9rem; }
     .table-striped tbody tr:nth-of-type(odd) { background-color: rgba(0,0,0,.05); }
     .expand-row { background-color: #f1f1f1; }
-    .cover-container { display: flex; flex-wrap: wrap; justify-content: center; }
+    .cover-container { display: flex; flex-wrap: wrap; justify-content: flex-start; }
     .nested-table thead { background-color: #eee; }
     @media (max-width: 992px) { .gallery-item { width: calc((100% - (var(--covers-per-row) - 1) * var(--gap)) / var(--covers-per-row)); } }
     @media (max-width: 768px) {

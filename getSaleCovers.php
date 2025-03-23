@@ -70,6 +70,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 $output = '<div class="d-flex flex-wrap justify-content-center">';
+
 while ($row = $result->fetch_assoc()) {
     // Updated image-path logic:
     // Determine sale image path first.
@@ -114,30 +115,41 @@ while ($row = $result->fetch_assoc()) {
     $upc = htmlspecialchars($row['UPC'] ?? 'N/A'); // ✅ Added UPC field (ONLY for popup)
     
     $output .= '<div class="position-relative m-2 cover-wrapper" style="width: 150px;" 
-                 data-comic-title="' . htmlspecialchars($comic_title) . '" 
-                 data-years="' . htmlspecialchars($years) . '" 
-                 data-issue-number="' . htmlspecialchars($issue) . '" 
-                 data-tab="' . $tab . '" 
-                 data-variant="' . $variant . '"
-                 data-issue_url="' . $issue_url . '"
-                 data-date="' . $comic_date . '"
-                 data-condition="' . $condition . '"
-                 data-graded="' . $gradedText . '"
-                 data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '"
-                 data-upc="' . $upc . '">';  // ✅ UPC only stored as data attribute for modal
+    data-comic-title="' . htmlspecialchars($comic_title) . '" 
+    data-years="' . htmlspecialchars($years) . '" 
+    data-issue-number="' . htmlspecialchars($issue) . '" 
+    data-tab="' . $tab . '" 
+    data-variant="' . $variant . '"
+    data-issue_url="' . $issue_url . '"
+    data-date="' . $comic_date . '"
+    data-condition="' . $condition . '"
+    data-graded="' . $gradedText . '"
+    data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '"
+    data-upc="' . $upc . '">';
     
     $output .= '<img src="' . htmlspecialchars($imgPath) . '" alt="Issue ' . htmlspecialchars($issue) . '" class="cover-img popup-trigger" style="width: 150px; height: 225px; cursor: pointer;">';
     
-    $output .= '<button class="edit-sale" style="position: absolute; top: 2px; right: 26px; background: rgba(0,123,255,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" data-listing-id="' . $listing_id . '" data-price="$' . $priceFormatted . ' ' . htmlspecialchars($currency) . '" data-condition="' . $condition . '" data-graded="' . $graded . '">E</button>';
-    $output .= '<button class="remove-sale" style="position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" data-listing-id="' . $listing_id . '">&times;</button>';
+    $output .= '<button class="edit-sale" 
+    style="position: absolute; top: 2px; right: 26px; background: rgba(0,123,255,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" 
+    data-comic-title="' . htmlspecialchars($comic_title) . '" 
+    data-years="' . htmlspecialchars($years) . '" 
+    data-issue-number="' . htmlspecialchars($issue) . '" 
+    title="Edit">E</button>';
+    
+    $output .= '<button class="remove-sale" 
+    style="position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" 
+    data-listing-id="' . htmlspecialchars($listing_id) . '" 
+    title="Remove">&times;</button>';
     
     $output .= '<div class="text-center small">Issue: ' . htmlspecialchars($issue) . '</div>';
-    $output .= '<div class="text-center small">Condition: ' . $condition . '</div>';
+    $output .= '<div class="text-center small">Condition: ' . htmlspecialchars($condition) . '</div>';
     $output .= '<div class="text-center small">Graded: ' . $gradedText . '</div>';
     $output .= '<div class="text-center small">Price: $' . $priceFormatted . ' ' . htmlspecialchars($currency) . '</div>';
     
     $output .= '</div>';
-}
+}  // <-- Added missing closing brace for while loop
+
+// Close the container div
 $output .= '</div>';
 
 $stmt->close();

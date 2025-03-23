@@ -16,8 +16,8 @@ if (empty($comic_title) || empty($years) || empty($issue_number)) {
     exit;
 }
 
-// Query the comics table for the details
-$sql = "SELECT Tab, Variant, `Date` FROM comics WHERE Comic_Title = ? AND Years = ? AND Issue_Number = ? LIMIT 1";
+// Query the comics table for the details, including UPC
+$sql = "SELECT Tab, Variant, `Date`, UPC AS upc FROM comics WHERE Comic_Title = ? AND Years = ? AND Issue_Number = ? LIMIT 1";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("sss", $comic_title, $years, $issue_number);
 $stmt->execute();
@@ -28,3 +28,4 @@ $conn->close();
 
 echo json_encode($data);
 ?>
+

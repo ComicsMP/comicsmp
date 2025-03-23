@@ -15,7 +15,11 @@ if (isset($_SESSION['user_id'])) {
 ?>
 
 <div class="header">
-  <h1>ComicsMP</h1>
+  <h1>
+    <a href="dashboard.php">
+      <img src="logo.png" alt="ComicsMP Logo" style="height: 50px;">
+    </a>
+  </h1>
   <?php if ($user): ?>
     <div class="dropdown">
       <button class="btn dropdown-toggle d-flex align-items-center gap-2" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">

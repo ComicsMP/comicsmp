@@ -6,7 +6,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 $user_id = $_SESSION['user_id'] ?? 0;
 
-// --- FETCH MATCHES (same as in profile.php) ---
 $sqlMatches = "
     SELECT 
         mn.id, 
@@ -21,9 +20,14 @@ $sqlMatches = "
         mn.seller_id,
         cs.comic_condition,
         cs.graded,
-        cs.price
+        cs.price,
+        c.Variant AS variant,
+        c.UPC AS upc
     FROM match_notifications mn
-    LEFT JOIN comics_for_sale cs ON (cs.issue_url = mn.issue_url AND cs.user_id = mn.seller_id)
+    LEFT JOIN comics_for_sale cs 
+        ON (cs.issue_url = mn.issue_url AND cs.user_id = mn.seller_id)
+    LEFT JOIN comics c 
+        ON TRIM(mn.issue_url) = TRIM(c.issue_url)
     WHERE (mn.buyer_id = ? OR mn.seller_id = ?)
     ORDER BY mn.match_time DESC
 ";
@@ -44,7 +48,6 @@ while ($row = $resultMatches->fetch_assoc()) {
 }
 $stmtMatches->close();
 
-// Build a map of user_id => username
 $otherUserIds = array_unique($otherUserIds);
 $userNamesMap = [];
 if (!empty($otherUserIds)) {
@@ -61,14 +64,12 @@ if (!empty($otherUserIds)) {
     $stmtUsers->close();
 }
 
-// Group matches by the “other” user
 $groupedMatches = [];
 foreach ($matches as $m) {
     $otherId = ($m['buyer_id'] == $user_id) ? $m['seller_id'] : $m['buyer_id'];
     $groupedMatches[$otherId][] = $m;
 }
 ?>
-<!-- Output the matches table HTML -->
 <table class="table table-striped" id="matchesTable">
   <thead>
     <tr>
@@ -92,8 +93,7 @@ foreach ($matches as $m) {
       </tr>
       <tr class="expand-match-row" id="expand-match-<?php echo $otherUserId; ?>" style="display:none;">
         <td colspan="4">
-          <!-- You can output detailed match info here -->
-          <?php echo "Detailed match info here for user $otherUserId."; ?>
+          Detailed match info here for user <?php echo $otherUserId; ?>.
         </td>
       </tr>
     <?php endforeach; ?>
