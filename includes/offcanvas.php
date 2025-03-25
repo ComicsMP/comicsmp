@@ -11,8 +11,8 @@
         <input type="text" id="comicTitle" class="modern-input" placeholder="Start typing comic title..." autocomplete="off">
         <div id="suggestions"></div>
       </div>
-      <!-- Search Mode Toggle -->
-      <div class="search-mode-group">
+      <!-- Search Mode Toggle (Added margin-top to lower it) -->
+      <div class="search-mode-group" style="margin-top: 10px;">
         <button type="button" class="btn btn-outline-primary search-mode" data-mode="allWords">All Words</button>
         <button type="button" class="btn btn-outline-primary search-mode" data-mode="anyWords">Any Words</button>
         <button type="button" class="btn btn-outline-primary search-mode active" data-mode="startsWith">Starts With</button>

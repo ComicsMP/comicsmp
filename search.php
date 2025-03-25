@@ -207,6 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+
   // On search button click, load results and adjust display
   $("#searchButton").on("click", function() {
     $.ajax({

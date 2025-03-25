@@ -19,10 +19,11 @@ $flash_success = $_SESSION['flash_success'] ?? '';
 $flash_error   = $_SESSION['flash_error'] ?? '';
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// Fetch user data
+// Fetch user data with merged currency field
 $query = "SELECT username, email, phone, city, bio, profile_picture, joined_date,
-                 preferred_currency, notifications, preferred_transaction,
-                 preferred_payment, facebook, twitter, instagram, rating
+                COALESCE(preferred_currency, currency) AS currency,
+                notifications, preferred_transaction,
+                preferred_payment, facebook, twitter, instagram, rating
           FROM users
           WHERE id = ?";
 $stmt = $conn->prepare($query);
@@ -64,13 +65,13 @@ $payment_methods = ["Cash", "E-Transfer", "PayPal"];
 // Handle profile updates if form submitted via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Basic details update
-    if (isset($_POST['nickname'], $_POST['email'], $_POST['city'], $_POST['preferred_currency'])) {
+    if (isset($_POST['nickname'], $_POST['email'], $_POST['city'], $_POST['currency'])) {
         $nickname = trim($_POST['nickname']);
         $email    = trim($_POST['email']);
         $phone    = trim($_POST['phone'] ?? '');
         $city     = trim($_POST['city']);
         $bio      = trim($_POST['bio'] ?? '');
-        $preferred_currency = trim($_POST['preferred_currency']);
+        $currency = trim($_POST['currency']);
         $notifications      = isset($_POST['notifications']) ? 1 : 0;
         
         // Convert arrays to comma-separated strings
@@ -88,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $updateQuery = "UPDATE users
                         SET username = ?, email = ?, phone = ?, city = ?, bio = ?,
-                            preferred_currency = ?, notifications = ?,
+                            currency = ?, notifications = ?,
                             preferred_transaction = ?, preferred_payment = ?,
                             facebook = ?, twitter = ?, instagram = ?
                         WHERE id = ?";
@@ -100,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $phone,
             $city,
             $bio,
-            $preferred_currency,
+            $currency,
             $notifications,
             $selected_transactions,
             $selected_payments,
@@ -233,10 +234,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="accordion-body">
             <div class="mb-3">
               <label class="form-label">Preferred Currency</label>
-              <select name="preferred_currency" class="form-select">
-                <?php foreach ($currencies as $currency): ?>
-                  <option value="<?= $currency ?>" <?= ($user['preferred_currency'] == $currency) ? 'selected' : '' ?>>
-                    <?= $currency ?>
+              <select name="currency" class="form-select">
+                <?php foreach ($currencies as $curr): ?>
+                  <option value="<?= $curr ?>" <?= ($user['currency'] == $curr) ? 'selected' : '' ?>>
+                    <?= $curr ?>
                   </option>
                 <?php endforeach; ?>
               </select>

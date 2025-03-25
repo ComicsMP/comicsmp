@@ -2,7 +2,7 @@
 session_start();
 require_once 'db_connection.php';
 
-// Endpoint: Fetch available tabs based on the selected year.
+// If this endpoint is used to fetch tabs, handle that first.
 if (isset($_GET['get_tabs'])) {
     $yearForTabs = $_GET['year'] ?? '';
     if (empty($yearForTabs)) {
@@ -42,10 +42,10 @@ if ($tab === 'Variants' && empty($issue_number) && isset($_SESSION['last_issue_n
     $issue_number = $_SESSION['last_issue_number'];
 }
 
-// Validate required parameters.
-if (!$comic_title || (!$year && trim($volume) === "") || !$tab) {
-    echo "<p class='text-danger'>Invalid parameters provided.</p>";
-    exit;
+// Only require a comic_title, let year/volume/tab be optional
+if (!$comic_title) {
+    echo "";
+    exit; 
 }
 
 try {
@@ -81,7 +81,7 @@ try {
         if ($tab === 'Issues') {
             $base_issue = str_replace('#', '', $issue_number);
             if (!$include_var) {
-                // Only the exact main issue (e.g., "2")
+                // Only the exact main issue.
                 $whereParts[] = "REPLACE(c.Issue_Number, '#', '') = ?";
                 $params[] = $base_issue;
                 $types .= 's';
@@ -102,11 +102,9 @@ try {
         }
     } else {
         // When no specific issue number is provided (or "All" is selected)
-        // If variants are NOT enabled, limit to main issues only.
         if ($tab === 'Issues' && !$include_var) {
             $whereParts[] = "REPLACE(c.Issue_Number, '#', '') REGEXP '^[0-9]+$'";
         }
-        // If variants are enabled and no issue number is provided, no additional filter is applied.
     }
 
     $whereClause = implode(' AND ', $whereParts);
@@ -139,20 +137,28 @@ try {
                  c.Issue_Number ASC
     ";
 
-    // Prepend user_id.
-    $types = 'i' . $types;
-    array_unshift($params, $user_id);
+    // Lazy Scroll / Pagination: Read limit and offset from GET parameters.
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+    $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
+    $sql .= " LIMIT ? OFFSET ?";
+
+    // Prepend user_id (for the join condition) to our parameter list.
+    // Previously, $types was built for the where clause; now we add two integers.
+    $types = 'i' . $types . 'ii';
+    array_unshift($params, $user_id);  // add user_id at beginning
+    $params[] = $limit;
+    $params[] = $offset;
 
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
-        echo "<p class='text-danger'>DB error: {$conn->error}</p>";
+        echo "<p class='text-danger'>DB error: " . htmlspecialchars($conn->error) . "</p>";
         exit;
     }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Output results.
+    // Output results as HTML.
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $title   = htmlspecialchars($row['comic_title']  ?? '');
@@ -166,7 +172,7 @@ try {
             $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
             $upc = htmlspecialchars($row['upc'] ?? 'N/A');
 
-            // Process image path with placeholder.
+            // Process image path.
             $rawPath = trim($row['image_path'] ?? '');
             if (empty($rawPath) || strtolower($rawPath) === 'null') {
                 $imgPath = "http://localhost/comicsmp/images/default.jpg";
@@ -200,7 +206,7 @@ try {
             echo "</div>\n";
         }
     } else {
-        echo "<p class='text-warning'>No results found.</p>";
+        echo "";
     }
 
     $stmt->close();

@@ -36,61 +36,57 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 🔥 DELETE FROM SALE
-$(document).on("click", ".remove-sale", function() {
-  const btn = $(this);
-  const listingId = btn.data("listing-id");
+  $(document).on("click", ".remove-sale", function() {
+    const btn = $(this);
+    const listingId = btn.data("listing-id");
 
-  if (confirm("Are you sure you want to remove this comic from your Sale list?")) {
-    $.post("deletesale.php", { listing_id: listingId }, function(response) {
-      // You can also inspect the response if needed
-      btn.closest(".cover-wrapper").fadeOut();
-    }).fail(function() {
-      alert("Failed to delete from Sale list.");
-    });
-  }
-});
-
-// BULK EDIT SALE
-$(document).on("click", ".bulk-edit-btn", function (e) {
-  e.preventDefault();
-  const comicTitle = $(this).data("comic-title");
-  const years = $(this).data("years");
-
-  $("#bulkComicTitle").val(comicTitle);
-  $("#bulkYears").val(years);
-  $("#bulkPrice").val("");       // Clear previous
-  $("#bulkCondition").val("");   // Clear previous
-
-  const bulkModal = new bootstrap.Modal(document.getElementById("bulkEditModal"));
-  bulkModal.show();
-});
-
-$("#bulkEditForm").on("submit", function (e) {
-  e.preventDefault();
-  const form = $(this);
-  $.ajax({
-    url: "editSaleBulk.php",
-    type: "POST",
-    data: form.serialize(),
-    dataType: "json",
-    success: function (response) {
-      if (response.status === "success") {
-        alert("Bulk update successful.");
-        location.reload(); // Optionally reload only the updated section
-      } else {
-        alert(response.message || "Update failed.");
-      }
-    },
-    error: function () {
-      alert("Server error during bulk update.");
+    if (confirm("Are you sure you want to remove this comic from your Sale list?")) {
+      $.post("deletesale.php", { listing_id: listingId }, function(response) {
+        btn.closest(".cover-wrapper").fadeOut();
+      }).fail(function() {
+        alert("Failed to delete from Sale list.");
+      });
     }
   });
-});
 
+  // BULK EDIT SALE
+  $(document).on("click", ".bulk-edit-btn", function (e) {
+    e.preventDefault();
+    const comicTitle = $(this).data("comic-title");
+    const years = $(this).data("years");
 
+    $("#bulkComicTitle").val(comicTitle);
+    $("#bulkYears").val(years);
+    $("#bulkPrice").val("");       // Clear previous
+    $("#bulkCondition").val("");   // Clear previous
 
+    const bulkModal = new bootstrap.Modal(document.getElementById("bulkEditModal"));
+    bulkModal.show();
+  });
 
-// Function to update tab buttons dynamically.
+  $("#bulkEditForm").on("submit", function (e) {
+    e.preventDefault();
+    const form = $(this);
+    $.ajax({
+      url: "editSaleBulk.php",
+      type: "POST",
+      data: form.serialize(),
+      dataType: "json",
+      success: function (response) {
+        if (response.status === "success") {
+          alert("Bulk update successful.");
+          location.reload(); // Optionally reload only the updated section
+        } else {
+          alert(response.message || "Update failed.");
+        }
+      },
+      error: function () {
+        alert("Server error during bulk update.");
+      }
+    });
+  });
+
+  // Function to update tab buttons dynamically.
   function updateTabButtons(title) {
     const selectedYear = $("#yearSelect").val();
     if (!selectedYear) {
@@ -119,11 +115,9 @@ $("#bulkEditForm").on("submit", function (e) {
       // If active tab is "issues", reposition the dropdown and toggle.
       if ($("#tabButtons .tab-button.active").text().trim().toLowerCase() === "issues") {
           loadMainIssues();
-          // Wrap the tabButtons in a flex container if not already done.
           if ($("#tabButtons").parent().attr("id") !== "tabRow") {
               $("#tabButtons").wrap('<div id="tabRow" style="display: flex; align-items: center; width: 100%;"></div>');
           }
-          // Append the issue dropdown and variant toggle to the flex container.
           $("#issueSelectMain").css({
               "margin-left": "auto",
               "display": "inline-block",
@@ -142,41 +136,40 @@ $("#bulkEditForm").on("submit", function (e) {
     }, "json");
   }
 
-  // Function to perform live search and update gallery results.
   function performSearch() {
-    const comicTitle = $("#comicTitle").val();
-    let tab = "All";
-    if ($("#tabButtons .tab-button.active").length) {
-      tab = $("#tabButtons .tab-button.active").text().trim();
-    } else if ($("#tabSelect").length) {
-      tab = $("#tabSelect").val();
+  // Reset lazy scroll variables on new search
+  currentOffset = 20;
+  noMoreResults = false;
+
+  const comicTitle = $("#comicTitle").val();
+  let tab = "All";
+  if ($("#tabButtons .tab-button.active").length) {
+    tab = $("#tabButtons .tab-button.active").text().trim();
+  } else if ($("#tabSelect").length) {
+    tab = $("#tabSelect").val();
+  }
+  let issueNumber = $("#issueSelectMain").length ? $("#issueSelectMain").val() : $("#issueSelect").val();
+  const includeVariants = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
+  if(issueNumber === "All" && includeVariants === 1) {
+    issueNumber = "";
+  }
+  const year = $("#yearSelect").val();
+  const params = {
+    comic_title: comicTitle,
+    tab: tab,
+    issue_number: issueNumber,
+    include_variants: includeVariants,
+    mode: searchMode,
+    year: year,
+    country: $("#countrySelect").val()
+  };
+  if (issueNumber !== "All" && issueNumber !== "" && includeVariants === 1) {
+    let baseIssue = issueNumber;
+    if (baseIssue.charAt(0) === "#") {
+      baseIssue = baseIssue.substring(1);
     }
-    // Get the selected issue number from the dropdown
-    let issueNumber = $("#issueSelectMain").length ? $("#issueSelectMain").val() : $("#issueSelect").val();
-    const includeVariants = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
-    // --- New Change:
-    // If the dropdown is "All" and variants are enabled, clear the issue filter.
-    if(issueNumber === "All" && includeVariants === 1) {
-      issueNumber = "";
-    }
-    const year = $("#yearSelect").val();
-    const params = {
-      comic_title: comicTitle,
-      tab: tab,
-      issue_number: issueNumber,
-      include_variants: includeVariants,
-      mode: searchMode,
-      year: year,
-      country: $("#countrySelect").val()
-    };
-    // When a specific issue is selected and variants are enabled, also send the base issue.
-    if (issueNumber !== "All" && issueNumber !== "" && includeVariants === 1) {
-      let baseIssue = issueNumber;
-      if (baseIssue.charAt(0) === "#") {
-        baseIssue = baseIssue.substring(1);
-      }
-      params.base_issue = baseIssue.trim();
-    }
+    params.base_issue = baseIssue.trim();
+  }
     $.ajax({
       url: "searchResults.php",
       method: "GET",
@@ -296,7 +289,6 @@ $("#bulkEditForm").on("submit", function (e) {
     } else {
       $(this).removeClass("btn-primary").addClass("btn-outline-primary");
     }
-    // Reload the issues dropdown to reflect the new state
     loadMainIssues();
     performSearch();
   });
@@ -386,10 +378,7 @@ $("#bulkEditForm").on("submit", function (e) {
   function loadMainIssues() {
     const comicTitle = $("#comicTitle").val();
     const year = $("#yearSelect").val();
-    // Adjust parameter based on the Include Variants toggle state:
     const includeVariantsEnabled = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
-    // If variants are enabled, set only_main to 0 so that all issues (main + variants) are fetched;
-    // otherwise, set only_main to 1 to fetch only main issues.
     const params = { 
       comic_title: comicTitle, 
       only_main: includeVariantsEnabled ? 0 : 1, 
@@ -473,62 +462,57 @@ $("#bulkEditForm").on("submit", function (e) {
   }
 
   // Popup Modal for Cover Image in Gallery Items.
-$(document).on("click", ".gallery-item img", function(e) {
-  if ($(e.target).closest("button").length) return;
-  // Show similar issues for search results
-  $(".similar-issues").show();
-  const parent = $(this).closest(".gallery-item");
-  const fullImageUrl = $(this).attr("src");
-  const comicTitle = parent.data("comic-title") || "N/A";
-  const years = parent.data("years") || "N/A";
-  const issueNumber = parent.data("issue-number") || "N/A";
-  const tab = parent.data("tab") || "N/A";
-  const variant = parent.data("variant") || "N/A";
-  const date = parent.attr("data-date") || "N/A";
-  $("#popupMainImage").attr("src", fullImageUrl);
-  $("#popupComicTitle").text(comicTitle);
-  $("#popupYears").text(years);
-  $("#popupIssueNumber").text(issueNumber);
-  $("#popupTab").text(tab);
-  $("#popupVariant").text(variant);
-  $("#popupDate").text(date);
-  const upc = parent.data("upc") || "N/A";
-  $("#popupUPC").text(upc);
-  $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
-  // Load similar issues for search results
-  loadSimilarIssues(comicTitle, years, issueNumber, false);
-  var modalEl = document.getElementById("coverPopupModal");
-  var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
-  modalInstance.show();
-});
+  $(document).on("click", ".gallery-item img", function(e) {
+    if ($(e.target).closest("button").length) return;
+    $(".similar-issues").show();
+    const parent = $(this).closest(".gallery-item");
+    const fullImageUrl = $(this).attr("src");
+    const comicTitle = parent.data("comic-title") || "N/A";
+    const years = parent.data("years") || "N/A";
+    const issueNumber = parent.data("issue-number") || "N/A";
+    const tab = parent.data("tab") || "N/A";
+    const variant = parent.data("variant") || "N/A";
+    const date = parent.attr("data-date") || "N/A";
+    $("#popupMainImage").attr("src", fullImageUrl);
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text(tab);
+    $("#popupVariant").text(variant);
+    $("#popupDate").text(date);
+    const upc = parent.data("upc") || "N/A";
+    $("#popupUPC").text(upc);
+    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
+    loadSimilarIssues(comicTitle, years, issueNumber, false);
+    var modalEl = document.getElementById("coverPopupModal");
+    var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modalInstance.show();
+  });
 
-
- // Popup Modal for Cover Image in Wanted/Sale Covers.
-$(document).on("click", ".cover-img", function(e) {
-  e.preventDefault();
-  // Hide similar issues for wanted/sale covers
-  $(".similar-issues").hide();
-  var $wrapper = $(this).closest(".cover-wrapper");
-  var comicTitle = $wrapper.data("comic-title") || "N/A";
-  var years = $wrapper.data("years") || "N/A";
-  var issueNumber = $wrapper.data("issue-number") || "N/A";
-  var tab = $wrapper.data("tab") || "N/A";
-  var variant = $wrapper.data("variant") || "N/A";
-  var date = $wrapper.data("date") || "N/A";
-  var upc = $wrapper.data("upc") || "N/A";
-  $("#popupMainImage").attr("src", $(this).attr("src"));
-  $("#popupComicTitle").text(comicTitle);
-  $("#popupYears").text(years);
-  $("#popupIssueNumber").text(issueNumber);
-  $("#popupTab").text(tab);
-  $("#popupVariant").text(variant);
-  $("#popupDate").text(date);
-  $("#popupUPC").text(upc);
-  $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
-  var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
-  modal.show();
-});
-
+  // Popup Modal for Cover Image in Wanted/Sale Covers.
+  $(document).on("click", ".cover-img", function(e) {
+    e.preventDefault();
+    $(".similar-issues").hide();
+    var $wrapper = $(this).closest(".cover-wrapper");
+    var comicTitle = $wrapper.data("comic-title") || "N/A";
+    var years = $wrapper.data("years") || "N/A";
+    var issueNumber = $wrapper.data("issue-number") || "N/A";
+    var tab = $wrapper.data("tab") || "N/A";
+    var variant = $wrapper.data("variant") || "N/A";
+    var date = $wrapper.data("date") || "N/A";
+    var upc = $wrapper.data("upc") || "N/A";
+    $("#popupMainImage").attr("src", $(this).attr("src"));
+    $("#popupComicTitle").text(comicTitle);
+    $("#popupYears").text(years);
+    $("#popupIssueNumber").text(issueNumber);
+    $("#popupTab").text(tab);
+    $("#popupVariant").text(variant);
+    $("#popupDate").text(date);
+    $("#popupUPC").text(upc);
+    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
+    var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
+    modal.show();
+  });
 
   // Popup Modal for Match Cover Images.
   $(document).on("click", ".match-cover-img", function(e) {
@@ -562,7 +546,7 @@ $(document).on("click", ".cover-img", function(e) {
         $("#popupTab").text(data.Tab || "N/A");
         $("#popupVariant").text(data.Variant || "N/A");
         $("#popupDate").text(data.Date || "N/A");
-        $("#popupUPC").text(data.upc || "N/A");  // <-- Add this line
+        $("#popupUPC").text(data.upc || "N/A");
         if(data.comic_condition) { $("#popupCondition").text(data.comic_condition); }
         if(data.graded) { $("#popupGraded").text(data.graded); }
         if(data.price) { $("#popupPrice").text(data.price); }
@@ -656,8 +640,6 @@ $(document).on("click", ".cover-img", function(e) {
     });
   });
 
-  
-
   $(document).on("click", ".send-message-btn", function(e) {
     var recipientId = $(this).data("other-user-id");
     var recipientName = $(this).data("other-username");
@@ -743,57 +725,138 @@ $(document).on("click", ".cover-img", function(e) {
   $("#navSearch").on("click", function() {
     searchOffcanvas.show();
   });
-});
 
-// 🛠️ EDIT SALE BUTTON HANDLER
-$(document).on("click", ".edit-sale", function (e) {
-  e.preventDefault();
-  const wrapper = $(this).closest(".cover-wrapper");
-  const listingId = $(this).data("listing-id");
-  const priceRaw = wrapper.data("price") || "";
-  const price = priceRaw.toString().replace(/[^0-9.]/g, '');
-  const condition = wrapper.data("condition") || "";
+  // 🛠️ EDIT SALE BUTTON HANDLER
+  $(document).on("click", ".edit-sale", function (e) {
+    e.preventDefault();
+    const wrapper = $(this).closest(".cover-wrapper");
+    const listingId = $(this).data("listing-id");
+    const priceRaw = wrapper.data("price") || "";
+    const price = priceRaw.toString().replace(/[^0-9.]/g, '');
+    const condition = wrapper.data("condition") || "";
 
-  $("#editListingId").val(listingId);
-  $("#editPrice").val(price);
-  $("#editCondition").val(condition);
+    $("#editListingId").val(listingId);
+    $("#editPrice").val(price);
+    $("#editCondition").val(condition);
 
-  const modal = new bootstrap.Modal(document.getElementById("editSaleModal"));
-  modal.show();
-});
+    const modal = new bootstrap.Modal(document.getElementById("editSaleModal"));
+    modal.show();
+  });
 
-// 🛠️ FORM SUBMIT HANDLER
-$("#editSaleForm").on("submit", function (e) {
-  e.preventDefault();
-  const form = $(this);
-  $.ajax({
-    url: "editSale.php",
-    type: "POST",
-    data: form.serialize(),
-    dataType: "json",
-    success: function (response) {
-      if (response.status === "success") {
-        alert("Updated successfully");
-        location.reload(); // Optional: Replace with AJAX refresh logic
-      } else {
-        alert(response.message || "Update failed.");
+  // 🛠️ FORM SUBMIT HANDLER for editSaleForm
+  $("#editSaleForm").on("submit", function (e) {
+    e.preventDefault();
+    const form = $(this);
+    $.ajax({
+      url: "editSale.php",
+      type: "POST",
+      data: form.serialize(),
+      dataType: "json",
+      success: function (response) {
+        if (response.status === "success") {
+          alert("Updated successfully");
+          location.reload(); // Optional: Replace with AJAX refresh logic
+        } else {
+          alert(response.message || "Update failed.");
+        }
+      },
+      error: function () {
+        alert("Server error during update.");
       }
-    },
-    error: function () {
-      alert("Server error during update.");
+    });
+  });
+
+  // -------------------------------
+  // MANUAL TRIGGER ON PAGE LOAD FOR MATCHES TAB (REAL UPDATE)
+  // -------------------------------
+  $('#navMatches').on('shown.bs.tab', function () {
+    // With throttling enabled:
+    if (shouldUpdate()) {
+      fetch('/comicsmp/update_matches.php?nocache=' + new Date().getTime())
+        .then(response => response.text())
+        .then(data => console.log('Update matches result:', data))
+        .catch(error => console.error('Update error:', error));
+    } else {
+      console.log('Update skipped due to throttling.');
     }
   });
-});
+  // -------------------------------
+  // END OF MANUAL TRIGGER REAL UPDATE SECTION
 
-// Allow single accordion to toggle open/close on repeated clicks
-$(document).on("click", "[data-bs-toggle='collapse']", function (e) {
-  var target = $($(this).attr("data-bs-target"));
-  if (target.hasClass("show")) {
-    target.collapse("hide");
-  } else {
-    target.collapse("show");
+  // -------------------------------
+  // LAZY SCROLL / PAGINATION FOR SEARCH RESULTS
+  // -------------------------------
+  // Global variables for lazy loading
+  var currentOffset = 20; // assuming initial load is 20 items
+  var loading = false;
+  var noMoreResults = false;
+
+  function loadMoreResults() {
+    if (loading || noMoreResults) return;
+    loading = true;
+    // Gather search parameters (adjust selectors as needed)
+    var params = {
+      comic_title: $("#comicTitle").val(),
+      year: $("#yearSelect").val(),
+      volume: '', // adjust if needed
+      tab: ($("#tabButtons .tab-button.active").length ? $("#tabButtons .tab-button.active").text().trim() : 'All'),
+      issue_number: ($("#issueSelectMain").length ? $("#issueSelectMain").val() : ''),
+      include_variants: $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0,
+      limit: 20,
+      offset: currentOffset
+    };
+
+    $.ajax({
+      url: "/comicsmp/searchResults.php",
+      method: "GET",
+      data: params,
+      success: function(html) {
+        if ($.trim(html) === "") {
+          noMoreResults = true;
+        } else {
+          $("#resultsGallery").append(html);
+          currentOffset += 20;
+        }
+        loading = false;
+      },
+      error: function() {
+        console.error("Error loading more results.");
+        loading = false;
+      }
+    });
+  }
+
+  // Bind a scroll event to the results container (#resultsGallery should be scrollable)
+  $(window).on("scroll", function() {
+  if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
+    loadMoreResults();
   }
 });
 
+  // -------------------------------
+  // END OF LAZY SCROLL SECTION
+});
 
+// Throttling function: only update if 5 minutes have passed since last update
+function shouldUpdate() {
+  const lastUpdate = sessionStorage.getItem('lastUpdate');
+  const updateInterval = 300000; // 5 minutes in milliseconds
+  if (!lastUpdate || (Date.now() - lastUpdate) > updateInterval) {
+    sessionStorage.setItem('lastUpdate', Date.now());
+    return true;
+  }
+  return false;
+}
+
+$('#navMatches').on('shown.bs.tab', function () {
+  // With throttling enabled:
+  if (shouldUpdate()) {
+    fetch('/comicsmp/update_matches.php?nocache=' + new Date().getTime())
+      .then(response => response.text())
+      .then(data => console.log('Update matches result:', data))
+      .catch(error => console.error('Update error:', error));
+  } else {
+    console.log('Update skipped due to throttling.');
+  }
+});
 </script>

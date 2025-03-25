@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>Dashboard - ComicsMP</title>
-
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 
   <style>
@@ -17,7 +19,7 @@
       display: flex; justify-content: space-between; align-items: center;
     }
     .header h1 { font-size: 2.5rem; margin: 0; }
-
+    .header-icons a { text-decoration: none; }
     .dropdown .avatar {
       width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 10px;
       border: 2px solid #fff;
