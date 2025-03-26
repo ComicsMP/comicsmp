@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 XAMPP_PATH = r"C:\xampp6\xampp_start.exe"     # Update if needed
-XAMPP_STOP_PATH = r"C:\xampp6\xampp_stop.exe" # Update if needed
+XAMPP_STOP_PATH = r"C:\xampp6\xampp_stop.exe"   # Update if needed
 
 def is_mysql_running():
     """
@@ -24,18 +24,14 @@ def start_mysql():
     Return True if successfully running (or already was), False otherwise.
     """
     print("🔄 Checking MySQL status...")
-
     if is_mysql_running():
         print("✅ MySQL is already running.")
         return True
 
     print("⚠️ MySQL is not running. Attempting to start MySQL service...")
-
     try:
-        # Launch XAMPP start (which includes MySQL)
         subprocess.Popen([XAMPP_PATH], shell=True)
         time.sleep(10)  # Give MySQL time to start
-
         if is_mysql_running():
             print("✅ MySQL started successfully.")
             return True
@@ -51,12 +47,9 @@ def stop_mysql():
     Stop MySQL properly using SQL shutdown instead of xampp_stop.exe.
     """
     print("🔄 Stopping MySQL safely...")
-
     try:
-        # Send a proper shutdown command to MySQL
         subprocess.run(["mysqladmin", "-u", "root", "shutdown"], check=True)
         time.sleep(5)  # Allow MySQL to shut down properly
-
         if not is_mysql_running():
             print("✅ MySQL stopped successfully.")
         else:
@@ -73,17 +66,14 @@ def run_script(script_name, step_name, working_dir):
     start_time = datetime.now()
     print(f"\n=== Starting {step_name} at {start_time.strftime('%Y-%m-%d %H:%M:%S')} ===")
     print(f"Running script: {script_name}\n{'-'*50}")
-
     try:
         subprocess.run(["python", script_name], check=True, cwd=working_dir)
     except subprocess.CalledProcessError as e:
         print(f"\n*** Error: {step_name} failed with return code {e.returncode}. Exiting. ***")
         sys.exit(e.returncode)
-
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
-    print(f"\n=== {step_name} completed successfully at {end_time.strftime('%Y-%m-%d %H:%M:%S')} "
-          f"(Duration: {duration:.2f} seconds) ===\n")
+    print(f"\n=== {step_name} completed successfully at {end_time.strftime('%Y-%m-%d %H:%M:%S')} (Duration: {duration:.2f} seconds) ===\n")
     print("=" * 70)
 
 def main():
@@ -106,11 +96,13 @@ def main():
     # Step 5: Organizing Volume Numbers (DB Check Only)
     run_script("step5.py", "Step 5: Organizing Volume Numbers", "Good_Scrap/Step_5")
 
-    # Step 6: Indexing New Covers for Mobile Scanning
-    run_script("step6.py", "Step 6: Indexing New Covers for Mobile Scanning", "Faiss_Mobile_Matching")
+    # Step 6: Correcting issue numbers missing the '#' sign
+    run_script("step6.py", "Step 6: Correcting issue numbers missing the '#' sign", r"Good_Scrap\Step_6")
+
+    # Step 7: Indexing New Covers for Mobile Scanning (moved from Step 6)
+    run_script("step7.py", "Step 7: Indexing New Covers for Mobile Scanning", "Faiss_Mobile_Matching")
 
     print("\n✅ All steps completed successfully!")
-
     # Stop MySQL after all steps are done
     stop_mysql()
 

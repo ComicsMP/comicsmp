@@ -5,7 +5,7 @@
     
     <!-- DASHBOARD TAB -->
     <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
-      <!-- Dashboard content will be loaded via AJAX from dashboard2.php -->
+      <!-- Dashboard content will be loaded via AJAX from ./includes/dashboard2.php -->
     </div>
 
     <!-- SEARCH TAB -->
@@ -467,7 +467,7 @@
 <script>
 $(document).ready(function(){
   function loadDashboardContent() {
-    $("#dashboard").load("dashboard2.php", function(response, status, xhr) {
+    $("#dashboard").load("./includes/dashboard2.php", function(response, status, xhr) {
       if (status === "error") {
         $("#dashboard").html("<p>Error loading content: " + xhr.status + " " + xhr.statusText + "</p>");
       }

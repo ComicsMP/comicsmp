@@ -9,11 +9,11 @@ error_reporting(E_ALL);
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-require_once 'db_connection.php';
+require_once __DIR__ . '/../db_connection.php'; // this fixes the fatal error
 
 $user_id = $_SESSION['user_id'] ?? 0;
 
-// --- Helper: Normalize image paths ---
+// --- Helper: Normalize image paths (Original) ---
 function getFinalImagePath($rawPath) {
     $raw = trim($rawPath ?? '');
     if (empty($raw) || strtolower($raw) === 'null') {
@@ -34,6 +34,42 @@ function getFinalImagePath($rawPath) {
     }
     $ext = pathinfo($final, PATHINFO_EXTENSION);
     if (empty($ext)) {
+        $final .= '.jpg';
+    }
+    return $final;
+}
+
+// --- Helper: Normalize image paths (Version 2) ---
+// Use this function in pages where you see duplicate folder issues.
+// It removes any leading slash from the raw value and ensures a clean URL.
+function getFinalImagePathV2($rawPath) {
+    // Remove leading spaces and any leading slash
+    $raw = ltrim(trim($rawPath ?? ''), '/');
+    
+    // Return a placeholder if empty or "null"
+    if (empty($raw) || strtolower($raw) === 'null') {
+        return '/comicsmp/placeholder.jpg';
+    }
+    
+    // If already a full URL, return it unchanged
+    if (filter_var($rawPath, FILTER_VALIDATE_URL)) {
+        return $rawPath;
+    }
+    
+    // Replace any duplicated segments "images/images/" with "images/"
+    $raw = str_replace('images/images/', 'images/', $raw);
+    $raw = preg_replace('#^(images/){2,}#i', 'images/', $raw);
+    
+    // Ensure the path begins with "images/"
+    if (strpos($raw, 'images/') !== 0) {
+         $raw = 'images/' . $raw;
+    }
+    
+    // Build the final path
+    $final = '/comicsmp/' . $raw;
+    
+    // Append ".jpg" if no file extension exists
+    if (empty(pathinfo($final, PATHINFO_EXTENSION))) {
         $final .= '.jpg';
     }
     return $final;

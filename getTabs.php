@@ -2,23 +2,36 @@
 require_once 'db_connection.php';
 
 $title   = $_GET['comic_title'] ?? '';
-$year    = $_GET['year'] ?? '';
 $country = $_GET['country'] ?? '';
+$year    = $_GET['year'] ?? '';
 
-$sql = "SELECT DISTINCT Tab FROM Comics WHERE Comic_Title = ?";
-$params = [$title];
-$types  = "s";
-
-if ($year) {
-    $sql .= " AND Years = ?";
-    $params[] = $year;
-    $types  .= "s";
+if (empty($title)) {
+    if (isset($_GET['returnJson']) && $_GET['returnJson'] == 1) {
+        header('Content-Type: application/json');
+        echo json_encode([]);
+    } else {
+        echo "<option value='' disabled selected>Select a Tab</option>";
+    }
+    exit;
 }
 
-if ($country) {
+// Convert title to lowercase for case-insensitive match
+$titleLower = strtolower($title);
+
+$sql = "SELECT DISTINCT Tab FROM Comics WHERE LOWER(Comic_Title) = ?";
+$params = [$titleLower];
+$types  = "s";
+
+if (!empty($country)) {
     $sql .= " AND Country = ?";
     $params[] = $country;
-    $types  .= "s";
+    $types   .= "s";
+}
+
+if (!empty($year)) {
+    $sql .= " AND Years = ?";
+    $params[] = $year;
+    $types   .= "s";
 }
 
 $sql .= " ORDER BY Tab ASC";
@@ -32,8 +45,7 @@ $returnJson = isset($_GET['returnJson']) && $_GET['returnJson'] == 1;
 $rows = $res->fetch_all(MYSQLI_ASSOC);
 
 if ($returnJson) {
-    // Build an array of tab options. Always include "All" first.
-    $tabs = ["All"];
+    $tabs = [];
     foreach ($rows as $row) {
         $tab = trim($row['Tab']);
         if ($tab !== '') {
@@ -44,10 +56,9 @@ if ($returnJson) {
     echo json_encode($tabs);
 } else {
     echo "<option value='' disabled selected>Select a Tab</option>";
-    echo "<option value='All'>All</option>";
     foreach ($rows as $row) {
         $tab = htmlspecialchars($row['Tab']);
-        if ($tab) {
+        if ($tab !== '') {
             echo "<option value='$tab'>$tab</option>";
         }
     }
