@@ -205,7 +205,7 @@ def bulk_insert_dedup(folder_path, db_config):
 
             # 8. Insert comic title suggestions
             if file_suggestions:
-                cursor.executemany(insert_suggestions_sql, [(title,) for title in file_suggestions])
+                cursor.executemany(insert_suggestions_sql, [(str(title).strip().upper(),) for title in file_suggestions])
                 conn.commit()
                 print(f"✅ {file_name}: Added {len(file_suggestions)} new comic title suggestions.")
 

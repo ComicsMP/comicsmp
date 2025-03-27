@@ -190,8 +190,8 @@ while ($row = $resultRecent50->fetch_assoc()) {
 $stmt->close();
 ?>
 
-<!-- BEGIN: Dashboard Inner Content -->
-<div class="container py-4">
+<!-- BEGIN: Dashboard Full-Width Layout -->
+<div class="container-fluid py-4">
   <div class="row">
     <!-- Left Column: Dashboard Overview -->
     <div class="col-lg-6">
@@ -241,9 +241,10 @@ $stmt->close();
       <div class="mt-4">
         <h3 class="mb-3">Quick Actions</h3>
         <div class="d-flex flex-wrap gap-3">
-          <a href="wanted.php" class="btn btn-outline-primary">Manage Wanted List</a>
-          <a href="selling.php" class="btn btn-outline-success">Manage Listings</a>
-          <a href="matches.php" class="btn btn-outline-info">View Matches</a>
+          <!-- Use the "bridge" class instead of data-bs-toggle="tab" -->
+          <a href="#wanted" class="btn-tab-bridge btn btn-outline-primary">Manage Wanted List</a>
+          <a href="#selling" class="btn-tab-bridge btn btn-outline-success">Manage Listings</a>
+          <a href="#matches" class="btn-tab-bridge btn btn-outline-info">View Matches</a>
         </div>
       </div>
       
@@ -251,19 +252,20 @@ $stmt->close();
       <h3 class="mb-3 mt-5">Latest Comics Released (from Wanted Items)</h3>
       <div class="row">
         <?php if (!empty($latestComics)): ?>
-          <?php foreach ($latestComics as $comic): 
+          <?php foreach ($latestComics as $comic):
                 $rawPath = $comic['image_path'];
                 $finalImage = getFinalImagePathV2($rawPath);
-                // Debug output for problematic image path
+                
+                // Debug if final image is placeholder
                 if ($finalImage === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                    echo '<!-- DEBUG: Wanted Comic "' . htmlspecialchars($comic['comic_title']) . 
+                    echo '<!-- DEBUG: Wanted Comic "' . htmlspecialchars($comic['comic_title']) .
                          '" raw image_path: ' . htmlspecialchars($rawPath) . ' | Final: ' . htmlspecialchars($finalImage) . ' -->';
                 }
           ?>
             <div class="col-md-3 col-sm-6 mb-3">
               <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImage); ?>" 
-                     class="card-img-top" 
+                <img src="<?php echo htmlspecialchars($finalImage); ?>"
+                     class="card-img-top"
                      alt="<?php echo htmlspecialchars($comic['comic_title']); ?>">
                 <div class="card-body">
                   <h5 class="card-title"><?php echo htmlspecialchars($comic['comic_title']); ?></h5>
@@ -281,18 +283,18 @@ $stmt->close();
       <h3 class="mb-3 mt-5">Recent Comics for Sale</h3>
       <div class="row">
         <?php if (!empty($recentSales)): ?>
-          <?php foreach ($recentSales as $sale): 
+          <?php foreach ($recentSales as $sale):
                 $rawPathSale = $sale['image_path'];
                 $finalImageSale = getFinalImagePathV2($rawPathSale);
                 if ($finalImageSale === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                    echo '<!-- DEBUG: Sale Comic "' . htmlspecialchars($sale['comic_title']) . 
+                    echo '<!-- DEBUG: Sale Comic "' . htmlspecialchars($sale['comic_title']) .
                          '" raw image_path: ' . htmlspecialchars($rawPathSale) . ' | Final: ' . htmlspecialchars($finalImageSale) . ' -->';
                 }
           ?>
             <div class="col-md-3 col-sm-6 mb-3">
               <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImageSale); ?>" 
-                     class="card-img-top" 
+                <img src="<?php echo htmlspecialchars($finalImageSale); ?>"
+                     class="card-img-top"
                      alt="<?php echo htmlspecialchars($sale['comic_title']); ?>">
                 <div class="card-body">
                   <h5 class="card-title"><?php echo htmlspecialchars($sale['comic_title']); ?></h5>
@@ -323,17 +325,17 @@ $stmt->close();
           </thead>
           <tbody>
             <?php if (!empty($recent50Sales)): ?>
-              <?php foreach ($recent50Sales as $sale): 
+              <?php foreach ($recent50Sales as $sale):
                     $rawPath50 = $sale['image_path'];
                     $finalImage50 = getFinalImagePathV2($rawPath50);
                     if ($finalImage50 === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                        echo '<!-- DEBUG: Recent50 Comic "' . htmlspecialchars($sale['comic_title']) . 
+                        echo '<!-- DEBUG: Recent50 Comic "' . htmlspecialchars($sale['comic_title']) .
                              '" raw image_path: ' . htmlspecialchars($rawPath50) . ' | Final: ' . htmlspecialchars($finalImage50) . ' -->';
                     }
               ?>
                 <tr>
                   <td>
-                    <?php 
+                    <?php
                       if (empty($finalImage50)) {
                           echo "No Image";
                       } else {
@@ -358,4 +360,25 @@ $stmt->close();
     
   </div> <!-- end row -->
 </div>
-<!-- END: Dashboard Inner Content -->
+<!-- END: Dashboard Full-Width Layout -->
+
+<!-- SIMPLE "TAB BRIDGE" SCRIPT -->
+<script>
+  // This assumes you have jQuery on the main page. 
+  // It listens for clicks on .btn-tab-bridge and triggers the parent's tab link.
+  $(document).on("click", ".btn-tab-bridge", function(e) {
+    e.preventDefault();
+    var targetTab = $(this).attr("href"); // e.g. "#wanted", "#selling", etc.
+    
+    // Find the matching nav-link in the parent that DOES have data-bs-toggle="tab"
+    // For example: <a class="nav-link" href="#wanted" data-bs-toggle="tab">
+    var $parentLink = $('a.nav-link[href="' + targetTab + '"]');
+    
+    if ($parentLink.length) {
+      // Use Bootstrap's .tab('show') to switch tabs in the parent
+      $parentLink.tab('show');
+    } else {
+      console.warn("Tab link not found for " + targetTab);
+    }
+  });
+</script>

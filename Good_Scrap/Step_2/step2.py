@@ -156,7 +156,8 @@ async def process_file(file_path):
         if col not in df.columns or df[col].isna().all():
             logging.error(f"Required column '{col}' not found or empty in {file_path.name}. Skipping file.")
             return 0, 0
-
+    # Normalization for Comic_Title
+    df['Comic_Title'] = df['Comic_Title'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else x)
     # Compute Unique_ID for each row using standardized column names.
     df['Unique_ID'] = df.apply(lambda row: compute_unique_id(row['Comic_Title'], row['Issue_Number'], row['Issue_URL']), axis=1)
     # Set default values for Image_Path and Timestamp
