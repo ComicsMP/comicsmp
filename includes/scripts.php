@@ -16,11 +16,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // 🔥 DELETE FROM WANTED
   $(document).on("click", ".remove-cover", function() {
     const btn = $(this);
-    const comicTitle = btn.data("comic-title");
-    const issueNumber = btn.data("issue-number");
+    const comicTitle = btn.data("comicTitle");
+    const issueNumber = btn.data("issueNumber");
     const years = btn.data("years");
-    const issueUrl = btn.data("issue_url");
-
+    const issueUrl = btn.data("issueUrl");
     if (confirm("Are you sure you want to remove this from your Wanted list?")) {
       $.post("deletewanted.php", {
         comic_title: comicTitle,
@@ -38,8 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 🔥 DELETE FROM SALE
   $(document).on("click", ".remove-sale", function() {
     const btn = $(this);
-    const listingId = btn.data("listing-id");
-
+    const listingId = btn.data("listingId");
     if (confirm("Are you sure you want to remove this comic from your Sale list?")) {
       $.post("deletesale.php", { listing_id: listingId }, function(response) {
         btn.closest(".cover-wrapper").fadeOut();
@@ -52,14 +50,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // BULK EDIT SALE
   $(document).on("click", ".bulk-edit-btn", function (e) {
     e.preventDefault();
-    const comicTitle = $(this).data("comic-title");
+    const comicTitle = $(this).data("comicTitle");
     const years = $(this).data("years");
-
     $("#bulkComicTitle").val(comicTitle);
     $("#bulkYears").val(years);
     $("#bulkPrice").val("");       // Clear previous
     $("#bulkCondition").val("");   // Clear previous
-
     const bulkModal = new bootstrap.Modal(document.getElementById("bulkEditModal"));
     bulkModal.show();
   });
@@ -136,122 +132,135 @@ document.addEventListener("DOMContentLoaded", () => {
     }, "json");
   }
 
-  function performSearch() {
-  // Reset lazy scroll variables on new search
-  currentOffset = 20;
-  noMoreResults = false;
+  // Function to process each gallery item and rebuild its action buttons and sell form.
+  function processGalleryItems($items) {
+    $items.each(function() {
+      const $item = $(this);
+      // Remove any existing button wrapper.
+      $item.find(".button-wrapper").remove();
+      // Read data attributes (jQuery auto-converts hyphenated names to camelCase).
+      const comicTitle = $item.data("comicTitle");
+      const issueNumber = $item.data("issueNumber");
+      const seriesYear = $item.data("years");
+      const issueUrl = $item.data("issueUrl");
+      // Build Wanted button.
+      let wantedBtn = $(`<button class="btn btn-primary add-to-wanted">Wanted</button>`)
+            .attr("data-series-name", comicTitle)
+            .attr("data-issue-number", issueNumber)
+            .attr("data-series-year", seriesYear)
+            .attr("data-issue-url", issueUrl);
+      if ($item.data("wanted") == 1) {
+        wantedBtn = $(`<button class="btn btn-success add-to-wanted" disabled>Added</button>`);
+      }
+      // Build Sell button.
+      let sellBtn = $(`<button class="btn btn-secondary sell-button">Sell</button>`)
+            .attr("data-series-name", comicTitle)
+            .attr("data-issue-number", issueNumber)
+            .attr("data-series-year", seriesYear)
+            .attr("data-issue-url", issueUrl);
+      const buttonWrapper = $('<div class="button-wrapper text-center"></div>');
+      buttonWrapper.append(wantedBtn).append(sellBtn);
+      $item.append(buttonWrapper);
+      // Append sell form if it does not exist.
+      if ($item.find(".sell-form").length === 0) {
+        const sellFormHtml = `
+          <div class="sell-form" style="display: none;">
+            <form class="sell-comic-form">
+              <div class="mb-2">
+                <label>Condition:</label>
+                <select name="condition" class="form-select" required>
+                  <option value="">Select Condition</option>
+                  <option value="10">10</option>
+                  <option value="9.9">9.9</option>
+                  <option value="9.8">9.8</option>
+                  <option value="9.6">9.6</option>
+                  <option value="9.4">9.4</option>
+                  <option value="9.2">9.2</option>
+                  <option value="9.0">9.0</option>
+                  <option value="8.5">8.5</option>
+                  <option value="8.0">8.0</option>
+                  <option value="7.5">7.5</option>
+                  <option value="7.0">7.0</option>
+                  <option value="6.5">6.5</option>
+                  <option value="6.0">6.0</option>
+                  <option value="5.5">5.5</option>
+                  <option value="5.0">5.0</option>
+                  <option value="4.5">4.5</option>
+                  <option value="4.0">4.0</option>
+                  <option value="3.5">3.5</option>
+                  <option value="3.0">3.0</option>
+                  <option value="2.5">2.5</option>
+                  <option value="2.0">2.0</option>
+                  <option value="1.8">1.8</option>
+                  <option value="1.5">1.5</option>
+                  <option value="1.0">1.0</option>
+                  <option value="0.5">0.5</option>
+                </select>
+              </div>
+              <div class="mb-2">
+                <label>Graded:</label>
+                <select name="graded" class="form-select" required>
+                  <option value="0" selected>Not Graded</option>
+                  <option value="1">Graded</option>
+                </select>
+              </div>
+              <div class="mb-2">
+                <label>Price:</label>
+                <input type="number" name="price" class="form-control" required>
+              </div>
+              <input type="hidden" name="comic_title" value="${comicTitle}">
+              <input type="hidden" name="issue_number" value="${issueNumber}">
+              <input type="hidden" name="years" value="${seriesYear}">
+              <input type="hidden" name="issue_url" value="${issueUrl}">
+              <button type="submit" class="btn btn-success">Submit Listing</button>
+            </form>
+          </div>
+        `;
+        $item.append(sellFormHtml);
+      }
+    });
+  }
 
-  const comicTitle = $("#comicTitle").val();
-  let tab = "All";
-  if ($("#tabButtons .tab-button.active").length) {
-    tab = $("#tabButtons .tab-button.active").text().trim();
-  } else if ($("#tabSelect").length) {
-    tab = $("#tabSelect").val();
-  }
-  let issueNumber = $("#issueSelectMain").length ? $("#issueSelectMain").val() : $("#issueSelect").val();
-  const includeVariants = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
-  if(issueNumber === "All" && includeVariants === 1) {
-    issueNumber = "";
-  }
-  const year = $("#yearSelect").val();
-  const params = {
-    comic_title: comicTitle,
-    tab: tab,
-    issue_number: issueNumber,
-    include_variants: includeVariants,
-    mode: searchMode,
-    year: year,
-    country: $("#countrySelect").val()
-  };
-  if (issueNumber !== "All" && issueNumber !== "" && includeVariants === 1) {
-    let baseIssue = issueNumber;
-    if (baseIssue.charAt(0) === "#") {
-      baseIssue = baseIssue.substring(1);
+  function performSearch() {
+    // Reset lazy scroll variables on new search
+    currentOffset = 20;
+    noMoreResults = false;
+    const comicTitle = $("#comicTitle").val();
+    let tab = "All";
+    if ($("#tabButtons .tab-button.active").length) {
+      tab = $("#tabButtons .tab-button.active").text().trim();
+    } else if ($("#tabSelect").length) {
+      tab = $("#tabSelect").val();
     }
-    params.base_issue = baseIssue.trim();
-  }
+    let issueNumber = $("#issueSelectMain").length ? $("#issueSelectMain").val() : $("#issueSelect").val();
+    const includeVariants = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
+    if(issueNumber === "All" && includeVariants === 1) {
+      issueNumber = "";
+    }
+    const year = $("#yearSelect").val();
+    const params = {
+      comic_title: comicTitle,
+      tab: tab,
+      issue_number: issueNumber,
+      include_variants: includeVariants,
+      mode: searchMode,
+      year: year,
+      country: $("#countrySelect").val()
+    };
+    if (issueNumber !== "All" && issueNumber !== "" && includeVariants === 1) {
+      let baseIssue = issueNumber;
+      if (baseIssue.charAt(0) === "#") {
+        baseIssue = baseIssue.substring(1);
+      }
+      params.base_issue = baseIssue.trim();
+    }
     $.ajax({
       url: "searchResults.php",
       method: "GET",
       data: params,
       success: function(html) {
         $("#resultsGallery").html(html);
-        $(".gallery-item").each(function() {
-          const $item = $(this);
-          $item.find(".button-wrapper").remove();
-          const comicTitle = $item.data("comic-title");
-          const issueNumber = $item.data("issue-number");
-          const seriesYear = $item.data("years");
-          const issueUrl = $item.data("issue_url");
-          let wantedBtn = $(`<button class="btn btn-primary add-to-wanted">Wanted</button>`)
-                .attr("data-series-name", comicTitle)
-                .attr("data-issue-number", issueNumber)
-                .attr("data-series-year", seriesYear)
-                .attr("data-issue-url", issueUrl);
-          if ($item.data("wanted") == 1) {
-            wantedBtn = $(`<button class="btn btn-success add-to-wanted" disabled>Added</button>`);
-          }
-          let sellBtn = $(`<button class="btn btn-secondary sell-button">Sell</button>`);
-          const buttonWrapper = $('<div class="button-wrapper text-center"></div>');
-          buttonWrapper.append(wantedBtn).append(sellBtn);
-          $item.append(buttonWrapper);
-          if ($item.find(".sell-form").length === 0) {
-            const sellFormHtml = `
-              <div class="sell-form" style="display: none;">
-                <form class="sell-comic-form">
-                  <div class="mb-2">
-                    <label>Condition:</label>
-                    <select name="condition" class="form-select" required>
-                      <option value="">Select Condition</option>
-                      <option value="10">10</option>
-                      <option value="9.9">9.9</option>
-                      <option value="9.8">9.8</option>
-                      <option value="9.6">9.6</option>
-                      <option value="9.4">9.4</option>
-                      <option value="9.2">9.2</option>
-                      <option value="9.0">9.0</option>
-                      <option value="8.5">8.5</option>
-                      <option value="8.0">8.0</option>
-                      <option value="7.5">7.5</option>
-                      <option value="7.0">7.0</option>
-                      <option value="6.5">6.5</option>
-                      <option value="6.0">6.0</option>
-                      <option value="5.5">5.5</option>
-                      <option value="5.0">5.0</option>
-                      <option value="4.5">4.5</option>
-                      <option value="4.0">4.0</option>
-                      <option value="3.5">3.5</option>
-                      <option value="3.0">3.0</option>
-                      <option value="2.5">2.5</option>
-                      <option value="2.0">2.0</option>
-                      <option value="1.8">1.8</option>
-                      <option value="1.5">1.5</option>
-                      <option value="1.0">1.0</option>
-                      <option value="0.5">0.5</option>
-                    </select>
-                  </div>
-                  <div class="mb-2">
-                    <label>Graded:</label>
-                    <select name="graded" class="form-select" required>
-                      <option value="0" selected>Not Graded</option>
-                      <option value="1">Graded</option>
-                    </select>
-                  </div>
-                  <div class="mb-2">
-                    <label>Price:</label>
-                    <input type="number" name="price" class="form-control" required>
-                  </div>
-                  <input type="hidden" name="comic_title" value="${comicTitle}">
-                  <input type="hidden" name="issue_number" value="${issueNumber}">
-                  <input type="hidden" name="years" value="${seriesYear}">
-                  <input type="hidden" name="issue_url" value="${issueUrl}">
-                  <button type="submit" class="btn btn-success">Submit Listing</button>
-                </form>
-              </div>
-            `;
-            $item.append(sellFormHtml);
-          }
-        });
+        processGalleryItems($("#resultsGallery .gallery-item"));
       },
       error: function() {
         $("#resultsGallery").html("<p class='text-danger'>Error loading results.</p>");
@@ -266,10 +275,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($(this).text().trim().toLowerCase() === "issues") {
       loadMainIssues();
       if ($("#tabButtons").parent().attr("id") !== "tabRow") {
-          $("#tabButtons").wrap('<div id="tabRow" style="display: flex; align-items: center; width: 100%;"></div>');
+        $("#tabButtons").wrap('<div id="tabRow" style="display: flex; align-items: center; width: 100%;"></div>');
       }
-      $("#issueSelectMain").css({"margin-left": "auto", "display": "inline-block", "vertical-align": "middle"}).appendTo("#tabRow").show();
-      $("#variantToggleMain").css({"display": "inline-block", "vertical-align": "middle", "margin-left": "10px"}).appendTo("#tabRow").show();
+      $("#issueSelectMain").css({"margin-left": "auto", "display": "inline-block", "vertical-align": "middle"})
+        .appendTo("#tabRow").show();
+      $("#variantToggleMain").css({"display": "inline-block", "vertical-align": "middle", "margin-left": "10px"})
+        .appendTo("#tabRow").show();
     } else {
       $("#issueSelectMain").hide();
       $("#variantToggleMain").hide();
@@ -410,12 +421,12 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const btn = $(this);
     if (btn.is(":disabled")) return;
-    const comicTitle = btn.data("series-name");
-    const issueNumber = btn.data("issue-number");
-    const seriesYear = btn.data("series-year");
+    const comicTitle = btn.data("seriesName");
+    const issueNumber = btn.data("issueNumber");
+    const seriesYear = btn.data("seriesYear");
     const tab = btn.data("tab") || "";
     const variant = btn.data("variant") || "";
-    const issueUrl = btn.data("issue-url") || "";
+    const issueUrl = btn.data("issueUrl") || "";
     $.ajax({
       url: "addToWanted.php",
       method: "POST",
@@ -467,9 +478,9 @@ document.addEventListener("DOMContentLoaded", () => {
     $(".similar-issues").show();
     const parent = $(this).closest(".gallery-item");
     const fullImageUrl = $(this).attr("src");
-    const comicTitle = parent.data("comic-title") || "N/A";
+    const comicTitle = parent.data("comicTitle") || "N/A";
     const years = parent.data("years") || "N/A";
-    const issueNumber = parent.data("issue-number") || "N/A";
+    const issueNumber = parent.data("issueNumber") || "N/A";
     const tab = parent.data("tab") || "N/A";
     const variant = parent.data("variant") || "N/A";
     const date = parent.attr("data-date") || "N/A";
@@ -494,9 +505,9 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     $(".similar-issues").hide();
     var $wrapper = $(this).closest(".cover-wrapper");
-    var comicTitle = $wrapper.data("comic-title") || "N/A";
+    var comicTitle = $wrapper.data("comicTitle") || "N/A";
     var years = $wrapper.data("years") || "N/A";
-    var issueNumber = $wrapper.data("issue-number") || "N/A";
+    var issueNumber = $wrapper.data("issueNumber") || "N/A";
     var tab = $wrapper.data("tab") || "N/A";
     var variant = $wrapper.data("variant") || "N/A";
     var date = $wrapper.data("date") || "N/A";
@@ -519,9 +530,9 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     var $img = $(this);
     var src = $img.attr("src");
-    var comicTitle = $img.data("comic-title") || "N/A";
+    var comicTitle = $img.data("comicTitle") || "N/A";
     var years = $img.data("years") || "N/A";
-    var issueNumber = $img.data("issue-number") || "N/A";
+    var issueNumber = $img.data("issueNumber") || "N/A";
     $("#popupConditionRow, #popupGradedRow, #popupPriceRow").show();
     var condition = $img.data("condition") || "N/A";
     var graded = $img.data("graded") || "N/A";
@@ -570,9 +581,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $(document).on("click", ".similar-issue-thumb", function() {
     const thumb = $(this);
-    const comicTitle = thumb.data("comic-title") || "N/A";
+    const comicTitle = thumb.data("comicTitle") || "N/A";
     const years = thumb.data("years") || "N/A";
-    const issueNumber = thumb.data("issue-number") || "N/A";
+    const issueNumber = thumb.data("issueNumber") || "N/A";
     const tab = thumb.data("tab") || "N/A";
     const variant = thumb.data("variant") || "N/A";
     const date = thumb.data("date") || "N/A";
@@ -596,9 +607,9 @@ document.addEventListener("DOMContentLoaded", () => {
     e.stopPropagation();
     var btn = $(this);
     var index = btn.data("index");
-    var comicTitle = btn.data("comic-title");
+    var comicTitle = btn.data("comicTitle");
     var years = btn.data("years");
-    var issueUrls = btn.data("issue-urls");
+    var issueUrls = btn.data("issueUrls");
     var rowSelector = "#expand-" + index;
     if ($(rowSelector).is(":visible")) {
       $(rowSelector).slideUp();
@@ -620,9 +631,9 @@ document.addEventListener("DOMContentLoaded", () => {
     e.stopPropagation();
     var btn = $(this);
     var index = btn.data("index");
-    var comicTitle = btn.data("comic-title");
+    var comicTitle = btn.data("comicTitle");
     var years = btn.data("years");
-    var issueUrls = btn.data("issue-urls");
+    var issueUrls = btn.data("issueUrls");
     var rowSelector = "#expand-sale-" + index;
     if ($(rowSelector).is(":visible")) {
       $(rowSelector).slideUp();
@@ -641,8 +652,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $(document).on("click", ".send-message-btn", function(e) {
-    var recipientId = $(this).data("other-user-id");
-    var recipientName = $(this).data("other-username");
+    var recipientId = $(this).data("otherUserId");
+    var recipientName = $(this).data("otherUsername");
     $("#recipient_id").val(recipientId);
     $("#recipientName").text(recipientName);
     var matchesData = $(this).data("matches");
@@ -730,15 +741,13 @@ document.addEventListener("DOMContentLoaded", () => {
   $(document).on("click", ".edit-sale", function (e) {
     e.preventDefault();
     const wrapper = $(this).closest(".cover-wrapper");
-    const listingId = $(this).data("listing-id");
+    const listingId = $(this).data("listingId");
     const priceRaw = wrapper.data("price") || "";
     const price = priceRaw.toString().replace(/[^0-9.]/g, '');
     const condition = wrapper.data("condition") || "";
-
     $("#editListingId").val(listingId);
     $("#editPrice").val(price);
     $("#editCondition").val(condition);
-
     const modal = new bootstrap.Modal(document.getElementById("editSaleModal"));
     modal.show();
   });
@@ -770,7 +779,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // MANUAL TRIGGER ON PAGE LOAD FOR MATCHES TAB (REAL UPDATE)
   // -------------------------------
   $('#navMatches').on('shown.bs.tab', function () {
-    // With throttling enabled:
     if (shouldUpdate()) {
       fetch('/comicsmp/update_matches.php?nocache=' + new Date().getTime())
         .then(response => response.text())
@@ -786,7 +794,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // -------------------------------
   // LAZY SCROLL / PAGINATION FOR SEARCH RESULTS
   // -------------------------------
-  // Global variables for lazy loading
   var currentOffset = 20; // assuming initial load is 20 items
   var loading = false;
   var noMoreResults = false;
@@ -794,7 +801,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadMoreResults() {
     if (loading || noMoreResults) return;
     loading = true;
-    // Gather search parameters (adjust selectors as needed)
     var params = {
       comic_title: $("#comicTitle").val(),
       year: $("#yearSelect").val(),
@@ -805,7 +811,6 @@ document.addEventListener("DOMContentLoaded", () => {
       limit: 20,
       offset: currentOffset
     };
-
     $.ajax({
       url: "/comicsmp/searchResults.php",
       method: "GET",
@@ -815,6 +820,8 @@ document.addEventListener("DOMContentLoaded", () => {
           noMoreResults = true;
         } else {
           $("#resultsGallery").append(html);
+          // Process only the newly appended items.
+          processGalleryItems($("#resultsGallery .gallery-item").slice(-($("<div>"+html+"</div>").find(".gallery-item").length)));
           currentOffset += 20;
         }
         loading = false;
@@ -826,18 +833,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Bind a scroll event to the results container (#resultsGallery should be scrollable)
   $(window).on("scroll", function() {
-  if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
-    loadMoreResults();
-  }
-});
-
+    if ($(window).scrollTop() + $(window).height() >= $(document).height() - 100) {
+      loadMoreResults();
+    }
+  });
   // -------------------------------
   // END OF LAZY SCROLL SECTION
 });
 
-// Throttling function: only update if 5 minutes have passed since last update
 function shouldUpdate() {
   const lastUpdate = sessionStorage.getItem('lastUpdate');
   const updateInterval = 300000; // 5 minutes in milliseconds
@@ -849,7 +853,6 @@ function shouldUpdate() {
 }
 
 $('#navMatches').on('shown.bs.tab', function () {
-  // With throttling enabled:
   if (shouldUpdate()) {
     fetch('/comicsmp/update_matches.php?nocache=' + new Date().getTime())
       .then(response => response.text())

@@ -42,7 +42,7 @@ if ($tab === 'Variants' && empty($issue_number) && isset($_SESSION['last_issue_n
     $issue_number = $_SESSION['last_issue_number'];
 }
 
-// Only require a comic_title, let year/volume/tab be optional
+// Only require a comic_title; let year/volume/tab be optional.
 if (!$comic_title) {
     echo "";
     exit; 
@@ -145,7 +145,7 @@ try {
     // Prepend user_id (for the join condition) to our parameter list.
     // Previously, $types was built for the where clause; now we add two integers.
     $types = 'i' . $types . 'ii';
-    array_unshift($params, $user_id);  // add user_id at beginning
+    array_unshift($params, $user_id);
     $params[] = $limit;
     $params[] = $offset;
 
@@ -170,7 +170,7 @@ try {
             $wanted  = !empty($row['wanted_id']) ? 1 : 0;
             $issue_url = htmlspecialchars($row['issue_url'] ?? '');
             $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
-            $upc = htmlspecialchars($row['upc'] ?? 'N/A');
+            $upc     = htmlspecialchars($row['upc'] ?? 'N/A');
 
             // Process image path.
             $rawPath = trim($row['image_path'] ?? '');
@@ -189,20 +189,37 @@ try {
                 $issue = '#' . $issue;
             }
 
+            // Output the gallery item with proper data attributes.
             echo "<div class='gallery-item' 
                           data-comic-title='{$title}' 
                           data-years='{$yrs}' 
-                          data-volume='{$vol}'
                           data-issue-number='{$issue}'
                           data-tab='{$tabVal}'
                           data-variant='{$variant}'
                           data-wanted='{$wanted}'
                           data-full='" . htmlspecialchars($imgPath) . "'
-                          data-issue_url='{$issue_url}'
+                          data-issue-url='{$issue_url}'
                           data-date='{$comic_date}'
                           data-upc='{$upc}'>\n";
             echo "<img src='" . htmlspecialchars($imgPath) . "' alt='" . $title . "' class='comic-image' data-full='" . htmlspecialchars($imgPath) . "'>\n";
             echo "<p class='series-issue'>Issue: " . $issue . "</p>\n";
+            // Action Buttons: "Wanted" and "Sell"
+            echo "<div class='button-wrapper text-center'>\n";
+            if ($wanted) {
+                echo "<button class='btn btn-success add-to-wanted' disabled>Added</button>\n";
+            } else {
+                echo "<button class='btn btn-primary add-to-wanted' 
+                              data-series-name='{$title}' 
+                              data-issue-number='{$issue}' 
+                              data-series-year='{$yrs}' 
+                              data-issue-url='{$issue_url}'>Wanted</button>\n";
+            }
+            echo "<button class='btn btn-secondary sell-button' 
+                          data-series-name='{$title}' 
+                          data-issue-number='{$issue}' 
+                          data-series-year='{$yrs}' 
+                          data-issue-url='{$issue_url}'>Sell</button>\n";
+            echo "</div>\n";
             echo "</div>\n";
         }
     } else {

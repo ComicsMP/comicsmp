@@ -2,6 +2,10 @@
 session_start();
 require_once 'setup.php';
 
+// Optionally enable error reporting during development
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Ensure the user is logged in
 if (!isset($_SESSION['user_id'])) {
     echo "<p>You must be logged in to view this content.</p>";
@@ -154,38 +158,75 @@ while ($row = $resultLatest->fetch_assoc()) {
 $stmt->close();
 
 // ---------------------------------------------
-// 5) Get Recent Comics for Sale from "comics_for_sale"
-//    (Only show those with an actual image)
+// NEW: Get My Recent Wanted Comics using Issue_URL join
+//    Match wanted_items.Issue_URL with comics.Issue_URL and use the comics.Image_Path
 // ---------------------------------------------
-$sqlRecentSales = "SELECT comic_title, issue_number, price, image_path, created_at 
-                   FROM comics_for_sale 
-                   WHERE user_id = ? 
-                     AND image_path <> 'images/default.jpg'
-                   ORDER BY created_at DESC 
-                   LIMIT 4";
-$stmt = $conn->prepare($sqlRecentSales);
+$sqlMyRecentWanted = "SELECT w.Comic_Title, w.Issue_Number, w.Issue_URL, c.Image_Path 
+                      FROM wanted_items AS w 
+                      LEFT JOIN comics AS c 
+                        ON w.Issue_URL = c.Issue_URL 
+                      WHERE w.user_id = ? 
+                      ORDER BY w.ID DESC 
+                      LIMIT 4";
+$stmt = $conn->prepare($sqlMyRecentWanted);
 $stmt->bind_param("i", $userId);
 $stmt->execute();
-$resultSales = $stmt->get_result();
-$recentSales = [];
-while ($row = $resultSales->fetch_assoc()) {
-    $recentSales[] = $row;
+$resultMyWanted = $stmt->get_result();
+$myRecentWanted = [];
+while ($row = $resultMyWanted->fetch_assoc()) {
+    $myRecentWanted[] = $row;
 }
 $stmt->close();
 
 // ---------------------------------------------
-// 6) Get the most recent 50 comics listed for sale (all users)
+// 5) Get My Recent Comics for Sale from "comics_for_sale"
+//    (Only select the image_path for the logged-in user)
 // ---------------------------------------------
-$sqlRecent50 = "SELECT comic_title, issue_number, price, image_path, created_at 
+$sqlMyRecentSales = "SELECT image_path FROM comics_for_sale WHERE user_id = ? ORDER BY id DESC LIMIT 4";
+$stmt = $conn->prepare($sqlMyRecentSales);
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$resultMySales = $stmt->get_result();
+$myRecentSales = [];
+while ($row = $resultMySales->fetch_assoc()) {
+    $myRecentSales[] = $row;
+}
+$stmt->close();
+
+// ---------------------------------------------
+// 6) Get the most recent 20 comics listed for sale (all users)
+// ---------------------------------------------
+$sqlRecent20 = "SELECT comic_title, issue_number, price, image_path, created_at 
                 FROM comics_for_sale 
                 ORDER BY created_at DESC 
-                LIMIT 50";
-$stmt = $conn->prepare($sqlRecent50);
+                LIMIT 20";
+$stmt = $conn->prepare($sqlRecent20);
 $stmt->execute();
-$resultRecent50 = $stmt->get_result();
-$recent50Sales = [];
-while ($row = $resultRecent50->fetch_assoc()) {
-    $recent50Sales[] = $row;
+$resultRecent20 = $stmt->get_result();
+$recent20Sales = [];
+while ($row = $resultRecent20->fetch_assoc()) {
+    $recent20Sales[] = $row;
+}
+$stmt->close();
+
+// ---------------------------------------------
+// 7) Get My Recent Comic Matches from "match_notifications"
+//    Join with the comics table to get the cover image, ordering by match_time
+// ---------------------------------------------
+$sqlMyRecentMatches = "SELECT m.comic_title, m.issue_number, m.match_time, c.Image_Path 
+                       FROM match_notifications m 
+                       LEFT JOIN comics c 
+                         ON m.comic_title = c.comic_title AND m.issue_number = c.issue_number 
+                       WHERE m.buyer_id = ? OR m.seller_id = ? 
+                       ORDER BY m.match_time DESC 
+                       LIMIT 4";
+$stmt = $conn->prepare($sqlMyRecentMatches);
+$stmt->bind_param("ii", $userId, $userId);
+$stmt->execute();
+$resultMyMatches = $stmt->get_result();
+$myRecentMatches = [];
+while ($row = $resultMyMatches->fetch_assoc()) {
+    $myRecentMatches[] = $row;
 }
 $stmt->close();
 ?>
@@ -193,7 +234,7 @@ $stmt->close();
 <!-- BEGIN: Dashboard Full-Width Layout -->
 <div class="container-fluid py-4">
   <div class="row">
-    <!-- Left Column: Dashboard Overview -->
+    <!-- Left Column: Dashboard Overview and Other Sections -->
     <div class="col-lg-6">
       <h2 class="mb-4">Dashboard Overview</h2>
       <div class="row mb-4">
@@ -241,11 +282,79 @@ $stmt->close();
       <div class="mt-4">
         <h3 class="mb-3">Quick Actions</h3>
         <div class="d-flex flex-wrap gap-3">
-          <!-- Use the "bridge" class instead of data-bs-toggle="tab" -->
           <a href="#wanted" class="btn-tab-bridge btn btn-outline-primary">Manage Wanted List</a>
           <a href="#selling" class="btn-tab-bridge btn btn-outline-success">Manage Listings</a>
           <a href="#matches" class="btn-tab-bridge btn btn-outline-info">View Matches</a>
         </div>
+      </div>
+      
+      <!-- NEW: My Recent Wanted Comics Section -->
+      <h3 class="mb-3 mt-5">My Recent Wanted Comics</h3>
+      <div class="row">
+        <?php if (!empty($myRecentWanted)): ?>
+          <?php foreach ($myRecentWanted as $wanted):
+                  $rawPathWanted = $wanted['Image_Path'];
+                  $finalImageWanted = getFinalImagePathV2($rawPathWanted);
+                  if ($finalImageWanted === '/comicsmp/images/comicsmp/placeholder.jpg') {
+                      echo '<!-- DEBUG: Wanted Comic raw image_path: ' . htmlspecialchars($rawPathWanted) . ' | Final: ' . htmlspecialchars($finalImageWanted) . ' -->';
+                  }
+          ?>
+            <div class="col-md-3 col-sm-6 mb-3">
+              <div class="card shadow-sm">
+                <img src="<?php echo htmlspecialchars($finalImageWanted); ?>"
+                     class="card-img-top"
+                     alt="<?php echo htmlspecialchars($wanted['Comic_Title']); ?>">
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <p class="text-muted">No recent wanted comics available.</p>
+        <?php endif; ?>
+      </div>
+      
+      <!-- My Recent Comics for Sale Section -->
+      <h3 class="mb-3 mt-5">My Recent Comics for Sale</h3>
+      <div class="row">
+        <?php if (!empty($myRecentSales)): ?>
+          <?php foreach ($myRecentSales as $sale):
+                  $rawPathSale = $sale['image_path'];
+                  $finalImageSale = getFinalImagePathV2($rawPathSale);
+                  if ($finalImageSale === '/comicsmp/images/comicsmp/placeholder.jpg') {
+                      echo '<!-- DEBUG: Sale Comic raw image_path: ' . htmlspecialchars($rawPathSale) . ' | Final: ' . htmlspecialchars($finalImageSale) . ' -->';
+                  }
+          ?>
+            <div class="col-md-3 col-sm-6 mb-3">
+              <div class="card shadow-sm">
+                <img src="<?php echo htmlspecialchars($finalImageSale); ?>"
+                     class="card-img-top"
+                     alt="Comic Image">
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <p class="text-muted">No recent sales available.</p>
+        <?php endif; ?>
+      </div>
+      
+      <!-- NEW: My Recent Comic Matches Section -->
+      <h3 class="mb-3 mt-5">My Recent Comic Matches</h3>
+      <div class="row">
+        <?php if (!empty($myRecentMatches)): ?>
+          <?php foreach ($myRecentMatches as $match):
+                  $rawPathMatch = $match['Image_Path'];
+                  $finalImageMatch = getFinalImagePathV2($rawPathMatch);
+          ?>
+            <div class="col-md-3 col-sm-6 mb-3">
+              <div class="card shadow-sm">
+                <img src="<?php echo htmlspecialchars($finalImageMatch); ?>"
+                     class="card-img-top"
+                     alt="<?php echo htmlspecialchars($match['comic_title']); ?>">
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <p class="text-muted">No recent comic matches available.</p>
+        <?php endif; ?>
       </div>
       
       <!-- Latest Comics Released Section from wanted_items -->
@@ -253,14 +362,12 @@ $stmt->close();
       <div class="row">
         <?php if (!empty($latestComics)): ?>
           <?php foreach ($latestComics as $comic):
-                $rawPath = $comic['image_path'];
-                $finalImage = getFinalImagePathV2($rawPath);
-                
-                // Debug if final image is placeholder
-                if ($finalImage === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                    echo '<!-- DEBUG: Wanted Comic "' . htmlspecialchars($comic['comic_title']) .
-                         '" raw image_path: ' . htmlspecialchars($rawPath) . ' | Final: ' . htmlspecialchars($finalImage) . ' -->';
-                }
+                  $rawPath = $comic['image_path'];
+                  $finalImage = getFinalImagePathV2($rawPath);
+                  if ($finalImage === '/comicsmp/images/comicsmp/placeholder.jpg') {
+                      echo '<!-- DEBUG: Wanted Comic "' . htmlspecialchars($comic['comic_title']) .
+                           '" raw image_path: ' . htmlspecialchars($rawPath) . ' | Final: ' . htmlspecialchars($finalImage) . ' -->';
+                  }
           ?>
             <div class="col-md-3 col-sm-6 mb-3">
               <div class="card shadow-sm">
@@ -279,40 +386,11 @@ $stmt->close();
         <?php endif; ?>
       </div>
       
-      <!-- Recent Comics for Sale Section -->
-      <h3 class="mb-3 mt-5">Recent Comics for Sale</h3>
-      <div class="row">
-        <?php if (!empty($recentSales)): ?>
-          <?php foreach ($recentSales as $sale):
-                $rawPathSale = $sale['image_path'];
-                $finalImageSale = getFinalImagePathV2($rawPathSale);
-                if ($finalImageSale === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                    echo '<!-- DEBUG: Sale Comic "' . htmlspecialchars($sale['comic_title']) .
-                         '" raw image_path: ' . htmlspecialchars($rawPathSale) . ' | Final: ' . htmlspecialchars($finalImageSale) . ' -->';
-                }
-          ?>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImageSale); ?>"
-                     class="card-img-top"
-                     alt="<?php echo htmlspecialchars($sale['comic_title']); ?>">
-                <div class="card-body">
-                  <h5 class="card-title"><?php echo htmlspecialchars($sale['comic_title']); ?></h5>
-                  <p class="card-text">Issue <?php echo htmlspecialchars($sale['issue_number']); ?></p>
-                  <p class="card-text">$<?php echo number_format($sale['price'], 2); ?></p>
-                </div>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <p class="text-muted">No recent sales available.</p>
-        <?php endif; ?>
-      </div>
     </div>
     
-    <!-- Right Column: Full Length Table for 50 Recent Comics Listed for Sale -->
+    <!-- Right Column: Full Length Table for 20 Recent Comics Listed for Sale -->
     <div class="col-lg-6">
-      <h2 class="mb-4">Latest 50 Comics for Sale</h2>
+      <h2 class="mb-4">Latest 20 Comics for Sale</h2>
       <div class="table-responsive">
         <table class="table table-striped table-bordered">
           <thead class="thead-dark">
@@ -324,22 +402,22 @@ $stmt->close();
             </tr>
           </thead>
           <tbody>
-            <?php if (!empty($recent50Sales)): ?>
-              <?php foreach ($recent50Sales as $sale):
-                    $rawPath50 = $sale['image_path'];
-                    $finalImage50 = getFinalImagePathV2($rawPath50);
-                    if ($finalImage50 === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                        echo '<!-- DEBUG: Recent50 Comic "' . htmlspecialchars($sale['comic_title']) .
-                             '" raw image_path: ' . htmlspecialchars($rawPath50) . ' | Final: ' . htmlspecialchars($finalImage50) . ' -->';
-                    }
+            <?php if (!empty($recent20Sales)): ?>
+              <?php foreach ($recent20Sales as $sale):
+                      $rawPath20 = $sale['image_path'];
+                      $finalImage20 = getFinalImagePathV2($rawPath20);
+                      if ($finalImage20 === '/comicsmp/images/comicsmp/placeholder.jpg') {
+                          echo '<!-- DEBUG: Recent20 Comic "' . htmlspecialchars($sale['comic_title']) .
+                               '" raw image_path: ' . htmlspecialchars($rawPath20) . ' | Final: ' . htmlspecialchars($finalImage20) . ' -->';
+                      }
               ?>
                 <tr>
                   <td>
                     <?php
-                      if (empty($finalImage50)) {
+                      if (empty($finalImage20)) {
                           echo "No Image";
                       } else {
-                          echo '<img src="' . htmlspecialchars($finalImage50) . '" alt="' . htmlspecialchars($sale['comic_title']) . '" style="width:50px;height:auto;">';
+                          echo '<img src="' . htmlspecialchars($finalImage20) . '" alt="' . htmlspecialchars($sale['comic_title']) . '" style="width:50px;height:auto;">';
                       }
                     ?>
                   </td>
@@ -364,18 +442,11 @@ $stmt->close();
 
 <!-- SIMPLE "TAB BRIDGE" SCRIPT -->
 <script>
-  // This assumes you have jQuery on the main page. 
-  // It listens for clicks on .btn-tab-bridge and triggers the parent's tab link.
   $(document).on("click", ".btn-tab-bridge", function(e) {
     e.preventDefault();
-    var targetTab = $(this).attr("href"); // e.g. "#wanted", "#selling", etc.
-    
-    // Find the matching nav-link in the parent that DOES have data-bs-toggle="tab"
-    // For example: <a class="nav-link" href="#wanted" data-bs-toggle="tab">
+    var targetTab = $(this).attr("href");
     var $parentLink = $('a.nav-link[href="' + targetTab + '"]');
-    
     if ($parentLink.length) {
-      // Use Bootstrap's .tab('show') to switch tabs in the parent
       $parentLink.tab('show');
     } else {
       console.warn("Tab link not found for " + targetTab);

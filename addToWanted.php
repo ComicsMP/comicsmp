@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $comic_title = $_POST['comic_title'] ?? '';
     $issue_number = $_POST['issue_number'] ?? '';
     $years = $_POST['years'] ?? '';
-    $issue_url = $_POST['issue_url'] ?? '';  // New parameter
+    $issue_url = $_POST['issue_url'] ?? '';  // Required parameter
 
     if (!$user_id || !$comic_title || !$issue_number || !$years || !$issue_url) {
         http_response_code(400);
