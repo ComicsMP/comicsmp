@@ -1,4 +1,76 @@
-<!-- mainContent.php -->
+<?php
+// mainContent.php
+// Start the session and ensure the user is logged in.
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+$userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+if (!$userId) {
+    http_response_code(403);
+    echo "Forbidden";
+    exit;
+}
+
+// -------------------------
+// Grade Mapping for Abbreviations (use string keys)
+// -------------------------
+$gradeMapping = [
+    "10.0" => "Gem Mint",
+    "9.9"  => "Mint",
+    "9.8"  => "NM/M",
+    "9.6"  => "NM+",
+    "9.4"  => "NM",
+    "9.2"  => "NM-",
+    "9.0"  => "VF/NM",
+    "8.5"  => "VF+",
+    "8.0"  => "VF",
+    "7.5"  => "VF-",
+    "7.0"  => "FN/VF",
+    "6.5"  => "FN+",
+    "6.0"  => "FN",
+    "5.5"  => "FN-",
+    "5.0"  => "VG/FN",
+    "4.5"  => "VG+",
+    "4.0"  => "VG",
+    "3.5"  => "VG-",
+    "3.0"  => "G/VG",
+    "2.5"  => "G",
+    "2.0"  => "G",
+    "1.8"  => "G-",
+    "1.5"  => "Fa/G",
+    "1.0"  => "Fa",
+    "0.5"  => "Poor"
+];
+
+// Helper functions
+function formatScore($score) {
+    if (is_numeric($score)) {
+        $floatVal = floatval($score);
+        if ($floatVal == intval($floatVal)) {
+            return intval($floatVal);
+        }
+    }
+    return $score;
+}
+function getScoreKey($score) {
+    if (is_numeric($score)) {
+        return number_format(floatval($score), 1);
+    }
+    return $score;
+}
+if (!function_exists('getFinalImagePath')) {
+    function getFinalImagePath($path) {
+        return str_replace("images/images", "images", $path);
+    }
+}
+if (!function_exists('fixImagePath')) {
+    function fixImagePath($path) {
+        $fixed = str_replace("images/images", "images", $path);
+        $fixed = ltrim($fixed, '/');
+        return "/comicsmp/" . $fixed;
+    }
+}
+?>
 <!-- MAIN CONTENT AREA -->
 <div class="main-content">
   <div class="tab-content" id="profileTabContent">
@@ -73,50 +145,28 @@
       <?php endif; ?>
     </div>
 
-    <!-- Edit Comic Modal -->
-    <div class="modal fade" id="editSaleModal" tabindex="-1" aria-labelledby="editSaleModalLabel" aria-hidden="true">
+    <!-- EDIT COMIC MODAL (Unique IDs) -->
+    <div class="modal fade" id="editSaleModalDashboard" tabindex="-1" aria-labelledby="editSaleModalLabelDashboard" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
-          <form id="editSaleForm">
+          <form id="editSaleFormDashboard">
             <div class="modal-header">
-              <h5 class="modal-title" id="editSaleModalLabel">Edit Sale Listing</h5>
+              <h5 class="modal-title" id="editSaleModalLabelDashboard">Edit Sale Listing</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-              <input type="hidden" name="listing_id" id="editListingId">
+              <input type="hidden" name="listing_id" id="editListingIdDashboard">
               <div class="mb-3">
-                <label for="editPrice" class="form-label">Price</label>
-                <input type="number" class="form-control" id="editPrice" name="price" required>
+                <label for="editPriceDashboard" class="form-label">Price</label>
+                <input type="number" class="form-control" id="editPriceDashboard" name="price" required>
               </div>
               <div class="mb-3">
-                <label for="editCondition" class="form-label">Condition</label>
-                <select class="form-select" id="editCondition" name="condition" required>
+                <label for="editConditionDashboard" class="form-label">Condition</label>
+                <select class="form-select" id="editConditionDashboard" name="condition" required>
                   <option value="">Select Condition</option>
-                  <option value="10">10 (Gem Mint)</option>
-                  <option value="9.9">9.9 (Mint)</option>
-                  <option value="9.8">9.8 (Near Mint/Mint)</option>
-                  <option value="9.6">9.6 (Near Mint+)</option>
-                  <option value="9.4">9.4 (Near Mint)</option>
-                  <option value="9.2">9.2 (Near Mint–)</option>
-                  <option value="9.0">9.0 (Very Fine/Near Mint)</option>
-                  <option value="8.5">8.5 (Very Fine+)</option>
-                  <option value="8.0">8.0 (Very Fine)</option>
-                  <option value="7.5">7.5 (Very Fine–)</option>
-                  <option value="7.0">7.0 (Fine/Very Fine)</option>
-                  <option value="6.5">6.5 (Fine+)</option>
-                  <option value="6.0">6.0 (Fine)</option>
-                  <option value="5.5">5.5 (Fine–)</option>
-                  <option value="5.0">5.0 (Very Good/Fine)</option>
-                  <option value="4.5">4.5 (Very Good+)</option>
-                  <option value="4.0">4.0 (Very Good)</option>
-                  <option value="3.5">3.5 (Very Good–)</option>
-                  <option value="3.0">3.0 (Good/Very Good)</option>
-                  <option value="2.5">2.5 (Good+)</option>
-                  <option value="2.0">2.0 (Good)</option>
-                  <option value="1.8">1.8 (Good–)</option>
-                  <option value="1.5">1.5 (Fair/Good)</option>
-                  <option value="1.0">1.0 (Fair)</option>
-                  <option value="0.5">0.5 (Poor)</option>
+                  <?php foreach ($gradeMapping as $value => $label): ?>
+                    <option value="<?php echo $value; ?>"><?php echo $value . " (" . $label . ")"; ?></option>
+                  <?php endforeach; ?>
                 </select>
               </div>
             </div>
@@ -128,51 +178,29 @@
       </div>
     </div>
 
-    <!-- Bulk Edit Modal -->
-    <div class="modal fade" id="bulkEditModal" tabindex="-1" aria-labelledby="bulkEditModalLabel" aria-hidden="true">
+    <!-- BULK EDIT MODAL (Unique IDs) -->
+    <div class="modal fade" id="bulkEditModalDashboard" tabindex="-1" aria-labelledby="bulkEditModalLabelDashboard" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
-          <form id="bulkEditForm">
+          <form id="bulkEditFormDashboard">
             <div class="modal-header">
-              <h5 class="modal-title" id="bulkEditModalLabel">Bulk Edit Series</h5>
+              <h5 class="modal-title" id="bulkEditModalLabelDashboard">Bulk Edit Series</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-              <input type="hidden" name="comic_title" id="bulkComicTitle">
-              <input type="hidden" name="years" id="bulkYears">
+              <input type="hidden" name="comic_title" id="bulkComicTitleDashboard">
+              <input type="hidden" name="years" id="bulkYearsDashboard">
               <div class="mb-3">
-                <label for="bulkPrice" class="form-label">New Price</label>
-                <input type="number" class="form-control" id="bulkPrice" name="price" required>
+                <label for="bulkPriceDashboard" class="form-label">New Price</label>
+                <input type="number" class="form-control" id="bulkPriceDashboard" name="price" required>
               </div>
               <div class="mb-3">
-                <label for="bulkCondition" class="form-label">New Condition</label>
-                <select class="form-select" id="bulkCondition" name="condition" required>
+                <label for="bulkConditionDashboard" class="form-label">New Condition</label>
+                <select class="form-select" id="bulkConditionDashboard" name="condition" required>
                   <option value="">Select Condition</option>
-                  <option value="10">10 (Gem Mint)</option>
-                  <option value="9.9">9.9 (Mint)</option>
-                  <option value="9.8">9.8 (Near Mint/Mint)</option>
-                  <option value="9.6">9.6 (Near Mint+)</option>
-                  <option value="9.4">9.4 (Near Mint)</option>
-                  <option value="9.2">9.2 (Near Mint–)</option>
-                  <option value="9.0">9.0 (Very Fine/Near Mint)</option>
-                  <option value="8.5">8.5 (Very Fine+)</option>
-                  <option value="8.0">8.0 (Very Fine)</option>
-                  <option value="7.5">7.5 (Very Fine–)</option>
-                  <option value="7.0">7.0 (Fine/Very Fine)</option>
-                  <option value="6.5">6.5 (Fine+)</option>
-                  <option value="6.0">6.0 (Fine)</option>
-                  <option value="5.5">5.5 (Fine–)</option>
-                  <option value="5.0">5.0 (Very Good/Fine)</option>
-                  <option value="4.5">4.5 (Very Good+)</option>
-                  <option value="4.0">4.0 (Very Good)</option>
-                  <option value="3.5">3.5 (Very Good–)</option>
-                  <option value="3.0">3.0 (Good/Very Good)</option>
-                  <option value="2.5">2.5 (Good+)</option>
-                  <option value="2.0">2.0 (Good)</option>
-                  <option value="1.8">1.8 (Good–)</option>
-                  <option value="1.5">1.5 (Fair/Good)</option>
-                  <option value="1.0">1.0 (Fair)</option>
-                  <option value="0.5">0.5 (Poor)</option>
+                  <?php foreach ($gradeMapping as $value => $label): ?>
+                    <option value="<?php echo $value; ?>"><?php echo $value . " (" . $label . ")"; ?></option>
+                  <?php endforeach; ?>
                 </select>
               </div>
             </div>
@@ -235,215 +263,12 @@
       <?php endif; ?>
     </div>
 
-    <!-- MATCHES TAB using Sub-Tabbed Interface with Messaging -->
+    <!-- MATCHES TAB -->
     <div class="tab-pane fade" id="matches" role="tabpanel">
-      <?php if (empty($groupedMatches)): ?>
-        <p>No matches found at this time.</p>
-      <?php else: ?>
-        <div class="accordion" id="matchesAccordion">
-          <?php foreach ($groupedMatches as $otherUserId => $matchesArray):
-                  $displayName = $userNamesMap[$otherUserId] ?? ('User #'.$otherUserId);
-                  // Separate matches into buy and sell groups
-                  $buyMatches = array_filter($matchesArray, function($m) use ($user_id) {
-                      return $m['buyer_id'] == $user_id;
-                  });
-                  $sellMatches = array_filter($matchesArray, function($m) use ($user_id) {
-                      return $m['seller_id'] == $user_id;
-                  });
-                  // Determine overall intent: "buy", "sell", or "buy_sell"
-                  $intent = ($buyMatches && !$sellMatches) ? 'buy' : (($sellMatches && !$buyMatches) ? 'sell' : 'buy_sell');
-          ?>
-            <div class="accordion-item">
-              <h2 class="accordion-header" id="heading-<?php echo $otherUserId; ?>">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-<?php echo $otherUserId; ?>">
-                  <?php echo htmlspecialchars($displayName); ?> (<?php echo count($matchesArray); ?> matches)
-                </button>
-              </h2>
-              <div id="collapse-<?php echo $otherUserId; ?>" class="accordion-collapse collapse" data-bs-parent="#matchesAccordion">
-                <div class="accordion-body">
-                  <!-- Sub-tabs for Buy, Sell, and Message -->
-                  <ul class="nav nav-tabs" id="subTab-<?php echo $otherUserId; ?>" role="tablist">
-                    <li class="nav-item" role="presentation">
-                      <button class="nav-link active" id="buy-tab-<?php echo $otherUserId; ?>" data-bs-toggle="tab" data-bs-target="#buy-<?php echo $otherUserId; ?>" type="button" role="tab">
-                        Buy From <?php echo htmlspecialchars($displayName); ?>
-                      </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                      <button class="nav-link" id="sell-tab-<?php echo $otherUserId; ?>" data-bs-toggle="tab" data-bs-target="#sell-<?php echo $otherUserId; ?>" type="button" role="tab">
-                        Sell To <?php echo htmlspecialchars($displayName); ?>
-                      </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                      <button class="nav-link" id="message-tab-<?php echo $otherUserId; ?>" data-bs-toggle="tab" data-bs-target="#message-<?php echo $otherUserId; ?>" type="button" role="tab">
-                        Message <?php echo htmlspecialchars($displayName); ?>
-                      </button>
-                    </li>
-                  </ul>
-                  <div class="tab-content mt-2">
-                    <!-- Buy Tab Content -->
-                    <div class="tab-pane fade show active" id="buy-<?php echo $otherUserId; ?>" role="tabpanel">
-                      <?php if (empty($buyMatches)): ?>
-                        <p>No comics available to buy.</p>
-                      <?php else: ?>
-                        <table class="table table-bordered">
-                          <thead>
-                            <tr>
-                              <th>Cover</th>
-                              <th>Comic Title</th>
-                              <th>Issue #</th>
-                              <th>Year</th>
-                              <th>Condition</th>
-                              <th>Price</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <?php foreach ($buyMatches as $m): ?>
-                              <tr>
-                                <td style="width:70px;">
-                                  <img class="match-cover-img" 
-                                       src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>" 
-                                       alt="Cover" 
-                                       style="width:70px; height:100px; object-fit:cover;"
-                                       data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
-                                       data-years="<?php echo htmlspecialchars($m['years']); ?>"
-                                       data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
-                                       data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
-                                       data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
-                                       data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
-                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? 'N/A'); ?>"
-                                       data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? ''); ?>"
-                                       data-graded="<?php echo htmlspecialchars(($m['graded'] ?? '') == '1' ? 'Yes' : 'No'); ?>"
-                                       data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>">
-                                </td>
-                                <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
-                                <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
-                                <td><?php echo htmlspecialchars($m['years']); ?></td>
-                                <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
-                                <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?></td>
-                              </tr>
-                            <?php endforeach; ?>
-                          </tbody>
-                        </table>
-                      <?php endif; ?>
-                    </div>
-                    <!-- Sell Tab Content -->
-                    <div class="tab-pane fade" id="sell-<?php echo $otherUserId; ?>" role="tabpanel">
-                      <?php if (empty($sellMatches)): ?>
-                        <p>No comics available to sell.</p>
-                      <?php else: ?>
-                        <table class="table table-bordered">
-                          <thead>
-                            <tr>
-                              <th>Cover</th>
-                              <th>Comic Title</th>
-                              <th>Issue #</th>
-                              <th>Year</th>
-                              <th>Condition</th>
-                              <th>Price</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <?php foreach ($sellMatches as $m): ?>
-                              <tr>
-                                <td style="width:70px;">
-                                  <img class="match-cover-img" 
-                                       src="<?php echo htmlspecialchars(getFinalImagePath($m['image_path'])); ?>" 
-                                       alt="Cover" 
-                                       style="width:70px; height:100px; object-fit:cover;"
-                                       data-comic-title="<?php echo htmlspecialchars($m['comic_title']); ?>"
-                                       data-years="<?php echo htmlspecialchars($m['years']); ?>"
-                                       data-issue-number="<?php echo htmlspecialchars($m['issue_number']); ?>"
-                                       data-tab="<?php echo htmlspecialchars($m['tab'] ?? ''); ?>"
-                                       data-variant="<?php echo htmlspecialchars($m['variant'] ?? ''); ?>"
-                                       data-date="<?php echo htmlspecialchars($m['date'] ?? ''); ?>"
-                                       data-upc="<?php echo htmlspecialchars($m['upc'] ?? $m['UPC'] ?? 'N/A'); ?>"
-                                       data-condition="<?php echo htmlspecialchars($m['comic_condition'] ?? ''); ?>"
-                                       data-graded="<?php echo htmlspecialchars(($m['graded'] ?? '') == '1' ? 'Yes' : 'No'); ?>"
-                                       data-price="<?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?>">
-                                </td>
-                                <td><?php echo htmlspecialchars($m['comic_title']); ?></td>
-                                <td><?php echo htmlspecialchars($m['issue_number']); ?></td>
-                                <td><?php echo htmlspecialchars($m['years']); ?></td>
-                                <td><?php echo htmlspecialchars($m['comic_condition'] ?? 'N/A'); ?></td>
-                                <td><?php echo !empty($m['price']) ? '$'.number_format($m['price'],2).' '.$currency : 'N/A'; ?></td>
-                              </tr>
-                            <?php endforeach; ?>
-                          </tbody>
-                        </table>
-                      <?php endif; ?>
-                    </div>
-                    <!-- Message Tab Content -->
-                    <div class="tab-pane fade" id="message-<?php echo $otherUserId; ?>" role="tabpanel">
-                      <p class="small text-muted">
-                        Please select the issues you wish to reference. The default subject and message will update automatically.
-                      </p>
-                      <form class="send-message-form" data-other-user-id="<?php echo $otherUserId; ?>" data-intent="<?php echo $intent; ?>" data-displayname="<?php echo htmlspecialchars($displayName); ?>">
-                        <input type="hidden" name="recipient_id" value="<?php echo $otherUserId; ?>">
-                        
-                        <div class="mb-3">
-                          <?php if (!empty($buyMatches)): ?>
-                            <h6 class="text-secondary">Buy From <?php echo htmlspecialchars($displayName); ?></h6>
-                            <?php foreach ($buyMatches as $index => $m): ?>
-                              <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="selected_issues_buy[]" value="<?php echo $index; ?>" id="issue-buy-<?php echo $otherUserId . '-' . $index; ?>">
-                                <label class="form-check-label" for="issue-buy-<?php echo $otherUserId . '-' . $index; ?>">
-                                  <?php 
-                                    echo htmlspecialchars(
-                                      ($m['comic_title'] ?? $m['Comic_Title'] ?? '') . " Issue " . 
-                                      ($m['issue_number'] ?? $m['Issue_Number'] ?? '') . " (" . 
-                                      ($m['years'] ?? $m['Years'] ?? '') . ") - " . 
-                                      "Condition: " . ($m['comic_condition'] ?? $m['condition'] ?? 'N/A') . ", " . 
-                                      "Price: " . (!empty($m['price']) ? '$'.number_format($m['price'],2).' '.($m['currency'] ?? $currency) : 'N/A')
-                                    );
-                                  ?>
-                                </label>
-                              </div>
-                            <?php endforeach; ?>
-                          <?php endif; ?>
-                        </div>
-                        
-                        <div class="mb-3">
-                          <?php if (!empty($sellMatches)): ?>
-                            <h6 class="text-secondary">Sell To <?php echo htmlspecialchars($displayName); ?></h6>
-                            <?php foreach ($sellMatches as $index => $m): ?>
-                              <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="selected_issues_sell[]" value="<?php echo $index; ?>" id="issue-sell-<?php echo $otherUserId . '-' . $index; ?>">
-                                <label class="form-check-label" for="issue-sell-<?php echo $otherUserId . '-' . $index; ?>">
-                                  <?php 
-                                    echo htmlspecialchars(
-                                      ($m['comic_title'] ?? $m['Comic_Title'] ?? '') . " Issue " . 
-                                      ($m['issue_number'] ?? $m['Issue_Number'] ?? '') . " (" . 
-                                      ($m['years'] ?? $m['Years'] ?? '') . ") - " .
-                                      "Condition: " . ($m['comic_condition'] ?? $m['condition'] ?? 'N/A') . ", " . 
-                                      "Price: " . (!empty($m['price']) ? '$'.number_format($m['price'],2).' '.($m['currency'] ?? $currency) : 'N/A')
-                                    );
-                                  ?>
-                                </label>
-                              </div>
-                            <?php endforeach; ?>
-                          <?php endif; ?>
-                        </div>
-                        
-                        <div class="mb-3">
-                          <label for="subject-<?php echo $otherUserId; ?>" class="form-label">Subject</label>
-                          <input type="text" class="form-control" id="subject-<?php echo $otherUserId; ?>" name="subject" placeholder="Enter subject">
-                        </div>
-                        
-                        <div class="mb-3">
-                          <label for="message-<?php echo $otherUserId; ?>-text" class="form-label">Message</label>
-                          <textarea class="form-control" id="message-<?php echo $otherUserId; ?>-text" name="message" rows="4" placeholder="Enter your message here"></textarea>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary">Send Message</button>
-                      </form>
-                    </div>
-                  </div><!-- End sub-tab content -->
-                </div>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
+      <!-- The matches content is loaded via AJAX into this fragment -->
+      <div id="matchesFragment">Loading Matches...</div>
+
+
     </div>
 
     <!-- PROFILE TAB -->
@@ -459,25 +284,44 @@
   </div>
 </div>
 
-<!-- Include jQuery and Bootstrap JS (if not already loaded) -->
+<!-- Include jQuery and Bootstrap JS if not already loaded -->
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- AJAX to load dashboard2.php content into the Dashboard Tab -->
+
+<!-- AJAX to load dashboard content -->
 <script>
 $(document).ready(function(){
   function loadDashboardContent() {
     $("#dashboard").load("./includes/dashboard2.php", function(response, status, xhr) {
       if (status === "error") {
         $("#dashboard").html("<p>Error loading content: " + xhr.status + " " + xhr.statusText + "</p>");
+      } else {
+        console.log("Dashboard content loaded successfully.");
       }
     });
   }
   
-  // Initial load
+  // Initial load of dashboard content
   loadDashboardContent();
-  
-  // Refresh the dashboard content every 30 seconds
+});
+</script>
+
+<!-- Load Matches Fragment via AJAX when the Matches tab is activated -->
+<script>
+$(document).ready(function(){
+  $('a.nav-link[href="#matches"]').on('shown.bs.tab', function(e) {
+    $("#matchesFragment").load("includes/matches.php #matchesContainer", function(response, status, xhr) {
+      if(status === "error"){
+         $("#matchesFragment").html("<p>Error loading matches: " + xhr.status + " " + xhr.statusText + "</p>");
+      } else {
+         if(typeof initMatchesFiltering === 'function'){
+            initMatchesFiltering();
+         }
+         console.log("Matches fragment loaded and events bound");
+      }
+    });
+  });
 });
 </script>
 
@@ -554,27 +398,80 @@ function updateDefaultText(form) {
 }
 </script>
 
+<!-- Hide and Delete Button Functions for Matches -->
 <script>
-$(document).on("submit", ".send-message-form", function(e) {
-  e.preventDefault();
-  var form = $(this);
-  var formData = form.serialize();
-  $.ajax({
-    url: "sendMessage.php",
-    method: "POST",
-    data: formData,
-    dataType: "json",
-    success: function(response) {
-      if (response.status === 'success') {
-        alert("Message sent successfully.");
-        form[0].reset();
-      } else {
-        alert("Error: " + response.message);
-      }
-    },
-    error: function() {
-      alert("Failed to send message.");
-    }
-  });
+$(document).on("click", ".hide-btn", function(e) {
+  e.stopPropagation();
+  var btn = $(this);
+  var otherUserId = btn.data('other-user-id');
+  if(btn.text().trim() === 'Hide') {
+      btn.text('Unhide');
+      btn.closest('.accordion-item').attr('data-hidden', 'true');
+  } else {
+      btn.text('Hide');
+      btn.closest('.accordion-item').attr('data-hidden', 'false');
+  }
+  filterMatches();
 });
+
+$(document).on("click", ".delete-match-btn", function (e) {
+  e.stopPropagation();
+  const $btn  = $(this);
+  const other = $btn.data("match-user-id");
+
+  const warning =
+    "⚠️  Warning: Deleting this contact will permanently remove all match information " +
+    "and will also block any future matches with this person.\n\n" +
+    "If there's a chance you might want to see new matches later, we strongly recommend " +
+    "using “Hide” instead.\n\n" +
+    "Do you still want to delete this match?";
+
+  if (!confirm(warning)) return;
+
+  $.post("/comicsmp/api/deleteMatch.php", { match_user_id: other }, "json")
+    .done(res => {
+      if (res.status === "success") {
+        $btn.closest(".accordion-item").remove();
+      } else {
+        alert("Server error: " + res.message);
+      }
+    })
+    .fail(() => alert("An error occurred while trying to delete the match."));
+});
+
+function filterMatches() {
+  var maxDistance = parseInt($('#distanceSlider').val());
+  var includeActive = $('#activeCheckbox').is(':checked');
+  var includeHidden = $('#hiddenCheckbox').is(':checked');
+  
+  $('#matchesAccordion .accordion-item').each(function(){
+     var itemDistance = parseInt($(this).attr('data-distance')) || 0;
+     var isHidden = $(this).attr('data-hidden') === 'true';
+     var distanceOk = isNaN(itemDistance) || itemDistance <= maxDistance;
+     var statusOk = (!isHidden && includeActive) || (isHidden && includeHidden);
+     if(distanceOk && statusOk) {
+        $(this).show();
+     } else {
+        $(this).hide();
+     }
+  });
+}
+
+function sortMatches() {
+  var sortBy = $('#sortSelect').val();
+  var items = $('#matchesAccordion .accordion-item').get();
+  items.sort(function(a, b) {
+     if (sortBy === 'newest') {
+        return $(b).attr('data-match-time') - $(a).attr('data-match-time');
+     } else if (sortBy === 'closest') {
+        return $(a).attr('data-distance') - $(b).attr('data-distance');
+     } else if (sortBy === 'most') {
+        return $(b).attr('data-match-count') - $(a).attr('data-match-count');
+     }
+     return 0;
+  });
+  $.each(items, function(idx, itm) {
+     $('#matchesAccordion').append(itm);
+  });
+}
 </script>

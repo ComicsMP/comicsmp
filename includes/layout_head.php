@@ -32,7 +32,72 @@
       right: 0; left: auto;
     }
 
-    .main-container { display: flex; margin-top: 1rem; }
+    .filter-row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.distance-slider {
+  width: 300px; /* wider than default but still neat */
+}
+
+input[type=range]{
+  -webkit-appearance:none;
+  height:8px;
+  background:linear-gradient(to right,#007BFF 0%,#007BFF var(--value,50%),#ddd var(--value,50%),#ddd 100%);
+  border-radius:5px;
+  outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:20px;
+  height:20px;
+  background:#007BFF;
+  border-radius:50%;
+  cursor:pointer;
+  border:2px solid #fff;
+}
+
+@media (max-width: 768px) {
+  .distance-slider {
+    width: 100%; /* full width on mobile for responsiveness */
+  }
+}
+
+/* Ensure range input track is clearly visible */
+input[type="range"].form-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: #eee;
+  border-radius: 0px;
+}
+
+input[type="range"].form-range::-moz-range-track {
+  height: 2px;
+  background: #eee;
+  border-radius: 0px;
+}
+
+input[type="range"].form-range::-ms-track {
+  height: 2px;
+  background: #eee;
+  border-radius: 0px;
+  border-color: transparent;
+  color: transparent;
+}
+
+
+
+.main-container { display: flex; margin-top: 1rem; }
     .sidebar {
       width: 220px; background-color: #333; color: #fff; min-height: 100vh; padding: 20px;
     }

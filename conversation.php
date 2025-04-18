@@ -12,26 +12,38 @@ if (!isset($_GET['conversation_id'])) {
 }
 
 $currentUser = $_SESSION['user_id'];
-$conversation_id = $_GET['conversation_id'];
+$conversation_id = intval($_GET['conversation_id']);
 
-// Query messages for this conversation, ordered chronologically.
+// ✅ Validate user is a participant in the conversation
+$checkSql = "SELECT id FROM conversations WHERE id = ? AND (user1_id = ? OR user2_id = ?)";
+$checkStmt = $conn->prepare($checkSql);
+$checkStmt->bind_param("iii", $conversation_id, $currentUser, $currentUser);
+$checkStmt->execute();
+$checkResult = $checkStmt->get_result();
+if ($checkResult->num_rows === 0) {
+    echo "<p>Access denied. You are not part of this conversation.</p>";
+    exit;
+}
+$checkStmt->close();
+
+// Query messages for this conversation
 $sql = "SELECT pm.sender_id, u.username, pm.message, pm.sent_at, pm.attachment 
         FROM private_messages pm 
         JOIN users u ON pm.sender_id = u.id 
         WHERE pm.conversation_id = ? 
         ORDER BY pm.sent_at ASC";
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $conversation_id);
+$stmt->bind_param("i", $conversation_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $messages = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// For the conversation header, we use a static subject.
+// Conversation header
 $subject = "Conversation Details";
 $lastUpdated = count($messages) > 0 ? end($messages)['sent_at'] : date("Y-m-d H:i:s");
 
-// Get unique participant names.
+// Participants
 $participants = [];
 foreach ($messages as $msg) {
     $participants[] = $msg['username'];

@@ -107,13 +107,13 @@ def setup_driver():
     options.add_argument("--ignore-certificate-errors")
     options.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.7049.42 Safari/537.36"
     )
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--log-level=3")
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     # Updated to specify the exact ChromeDriver version for Chrome 133.0.6943.142
-    service = Service(ChromeDriverManager(driver_version="133.0.6943.142").install())
+    service = Service(ChromeDriverManager(driver_version="135.0.7049.42").install())
     driver = webdriver.Chrome(service=service, options=options)
     return driver
 
@@ -151,6 +151,21 @@ def fix_repeated_text(s):
         half = length // 2
         if s[:half] == s[half:]:
             return s[:half]
+    return s
+
+# New function to catch glued duplicates:
+def fix_glued_variant(s):
+    """
+    If the first 20 characters reappear beyond index 20,
+    trim the string at the start of that repeated chunk.
+    """
+    s = s.strip()
+    if len(s) < 40:
+        return s
+    chunk = s[:20]
+    repeat_pos = s.find(chunk, 20)
+    if repeat_pos != -1:
+        return s[:repeat_pos]
     return s
 
 def click_tab_button(driver, tab_elem):
@@ -464,10 +479,14 @@ def scrape_one_tab(driver, tab_button):
                 continue
             variant_elem = parent_td.find("span", class_="d-none d-sm-inline f-11")
             variant_raw = variant_elem.get_text(strip=True) if variant_elem else "N/A"
-            variant = fix_repeated_text(variant_raw)
+
+            # Only change: calling fix_glued_variant instead of fix_repeated_text
+            variant = fix_glued_variant(variant_raw)
+
             edition_elem = parent_td.find("span", class_="d-block mt-1 text-black f-10 fw-bold")
             edition_raw = edition_elem.get_text(strip=True) if edition_elem else "N/A"
             edition = fix_repeated_text(edition_raw)
+
             info_div = parent_td.find("div", class_="grid_issue_info")
             years = "N/A"
             if info_div:

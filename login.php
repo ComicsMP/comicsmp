@@ -2,6 +2,14 @@
 session_start();
 require 'db_connection.php';
 
+// Detect mobile user agent
+$is_mobile = false;
+if (preg_match("/(android|iphone|ipad|ipod|blackberry|windows phone)/i", $_SERVER['HTTP_USER_AGENT'])) {
+    $is_mobile = true;
+}
+
+$error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
@@ -18,7 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (password_verify($password, $user['password_hash'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
-                header("Location: dashboard.php");
+                // Redirect to mobile index if mobile, otherwise to desktop dashboard
+                if ($is_mobile) {
+                    header("Location: includes/mobile_index.php");
+                } else {
+                    header("Location: dashboard.php");
+                }
                 exit;
             } else {
                 $error = "Invalid password.";
@@ -32,17 +45,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<?php include 'includes/layout_head.php'; ?>
-<?php include 'includes/header.php'; ?>
+<?php
+// Load the appropriate header and layout files based on device type
+if ($is_mobile) {
+    include 'includes/mobile_layout_head.php';
+    include 'includes/mobile_header.php';
+} else {
+    include 'includes/layout_head.php';
+    include 'includes/header.php';
+}
+?>
 
 <div class="container mt-5">
   <h1 class="text-center mb-4">Login</h1>
   <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="<?php echo $is_mobile ? 'col-10' : 'col-md-6'; ?>">
       <?php if (!empty($error)): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
       <?php endif; ?>
-      <form method="POST" action="login.php">
+      <!-- The form submits to the same file -->
+      <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
         <div class="mb-3">
           <label for="email" class="form-label">Email</label>
           <input type="email" id="email" name="email" class="form-control" required>
@@ -60,7 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </div>
 </div>
 
-<?php include 'includes/scripts.php'; ?>
+<?php
+if ($is_mobile) {
+    include 'includes/mobile_scripts.php';
+} else {
+    include 'includes/scripts.php';
+}
+?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

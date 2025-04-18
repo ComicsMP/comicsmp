@@ -23,8 +23,8 @@ if (!isset($_SESSION['user_id'])) {
             if ($result->num_rows > 0) {
                 $user = $result->fetch_assoc();
                 if (password_verify($password, $user['password_hash'])) {
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['user_id']   = $user['id'];
+                    $_SESSION['username']  = $user['username'];
                     header("Location: dashboard.php");
                     exit;
                 } else {
@@ -82,7 +82,47 @@ if (!isset($_SESSION['user_id'])) {
 <?php include 'includes/modals.php'; ?>
 <?php include 'includes/scripts.php'; ?>
 
+<!-- Bootstrap bundle (popper + bootstrap.js) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- jQuery (in case not already included) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+<!-- Load Matches via AJAX -->
+<script>
+function loadMatches() {
+  $.get('includes/matches.php', function(html) {
+    $('#matchesContainer').html(html);
+    console.log("✅ Matches fragment injected");
+  }).fail(function (xhr, status, error) {
+    console.error("❌ Failed to load matches:", status, error);
+    $('#matchesContainer').html("<p>Error loading matches: " + error + "</p>");
+  });
+}
+
+$(document).ready(function () {
+  loadMatches();
+
+  $(document).on('click', '.expand-btn', function () {
+    const uid = $(this).data('user-id');
+    const $detail = $('#detail-' + uid);
+    console.log(`▶ Expand clicked for user: ${uid} → Found? ${$detail.length}`);
+    if ($detail.length) {
+      const isVisible = $detail.css('display') === 'table-row';
+      $detail.css('display', isVisible ? 'none' : 'table-row');
+    }
+  });
+
+  $(document).on('click', '.pm-btn', function () {
+    const uid = $(this).data('user-id');
+    alert('Open PM to user ' + uid);
+  });
+});
+
+
+</script>
+
+<!-- Tab Activation from Hash -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const hash = window.location.hash;
@@ -103,7 +143,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Activate tab from dropdown (in case no hash reload)
   document.querySelectorAll('.dropdown-item[data-bs-target]').forEach(item => {
     item.addEventListener('click', function (e) {
       e.preventDefault();
@@ -112,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (tabTrigger) {
         const tab = new bootstrap.Tab(tabTrigger);
         tab.show();
-        history.replaceState(null, null, tabId); // update URL hash
+        history.replaceState(null, null, tabId);
       }
     });
   });

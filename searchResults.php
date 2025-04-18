@@ -190,9 +190,9 @@ try {
             }
 
             // Output the gallery item with proper data attributes.
-            echo "<div class='gallery-item' 
-                          data-comic-title='{$title}' 
-                          data-years='{$yrs}' 
+            echo "<div class='gallery-item'
+                          data-comic-title='{$title}'
+                          data-years='{$yrs}'
                           data-issue-number='{$issue}'
                           data-tab='{$tabVal}'
                           data-variant='{$variant}'
@@ -200,27 +200,26 @@ try {
                           data-full='" . htmlspecialchars($imgPath) . "'
                           data-issue-url='{$issue_url}'
                           data-date='{$comic_date}'
-                          data-upc='{$upc}'>\n";
-            echo "<img src='" . htmlspecialchars($imgPath) . "' alt='" . $title . "' class='comic-image' data-full='" . htmlspecialchars($imgPath) . "'>\n";
-            echo "<p class='series-issue'>Issue: " . $issue . "</p>\n";
-            // Action Buttons: "Wanted" and "Sell"
-            echo "<div class='button-wrapper text-center'>\n";
+                          data-upc='{$upc}'>
+                  <img src='" . htmlspecialchars($imgPath) . "' alt='" . $title . "' class='comic-image'>
+                  <p class='series-issue'>Issue: {$issue}</p>
+                  <div class='button-wrapper text-center'>";
             if ($wanted) {
-                echo "<button class='btn btn-success add-to-wanted' disabled>Added</button>\n";
+                echo "<button class='btn btn-success add-to-wanted' disabled>Added</button>";
             } else {
-                echo "<button class='btn btn-primary add-to-wanted' 
-                              data-series-name='{$title}' 
-                              data-issue-number='{$issue}' 
-                              data-series-year='{$yrs}' 
-                              data-issue-url='{$issue_url}'>Wanted</button>\n";
+                echo "<button class='btn btn-primary add-to-wanted'
+                              data-series-name='{$title}'
+                              data-issue-number='{$issue}'
+                              data-series-year='{$yrs}'
+                              data-issue-url='{$issue_url}'>Wanted</button>";
             }
-            echo "<button class='btn btn-secondary sell-button' 
-                          data-series-name='{$title}' 
-                          data-issue-number='{$issue}' 
-                          data-series-year='{$yrs}' 
-                          data-issue-url='{$issue_url}'>Sell</button>\n";
-            echo "</div>\n";
-            echo "</div>\n";
+            echo "<button class='btn btn-secondary sell-button'
+                          data-series-name='{$title}'
+                          data-issue-number='{$issue}'
+                          data-series-year='{$yrs}'
+                          data-issue-url='{$issue_url}'>Sell</button>";
+            echo "  </div>
+                  </div>";
         }
     } else {
         echo "";

@@ -1,5 +1,39 @@
 <!-- Modals.php -->
 <!-- MODALS -->
+
+<style>
+  /* UPC container: keep everything on one line */
+  #popupUPCContainer {
+    white-space: nowrap; /* Prevent line breaks */
+  }
+  /* UPC text and button: inline, same font/size */
+  #popupUPC, #submitUPCBtn {
+    display: inline-block;
+    font-family: inherit;
+    font-size: inherit;
+    margin: 0;
+    padding: 0;
+    vertical-align: baseline;
+  }
+  /* Remove extra button styling to appear like normal text link */
+  #submitUPCBtn {
+    background: none;
+    border: none;
+    color: #007bff; /* Typical link color */
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  #submitUPCBtn:hover {
+    color: #0056b3;
+    text-decoration: none;
+  }
+  /* Remove focus outline (blue glow) from the UPC input field */
+  #newUPC:focus, .form-control:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+</style>
+
 <!-- Edit Sale Listing Modal -->
 <div class="modal fade" id="editSaleModal" tabindex="-1" aria-labelledby="editSaleModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -61,6 +95,7 @@
     </form>
   </div>
 </div>
+
 <!-- Bulk Edit Series Modal -->
 <div class="modal fade" id="bulkEditSaleModal" tabindex="-1" aria-labelledby="bulkEditSaleModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -76,6 +111,7 @@
           <div class="mb-3">
             <label for="bulkEditCondition" class="form-label">Condition</label>
             <select class="form-select" id="bulkEditCondition" name="condition" required>
+              <option value="">Select Condition</option>
               <option value="10">10</option>
               <option value="9.9">9.9</option>
               <option value="9.8">9.8</option>
@@ -124,7 +160,8 @@
     </form>
   </div>
 </div>
-<!-- Cover Popup Modal -->
+
+<!-- Cover Popup Modal (Used for Search Results) -->
 <div class="modal fade" id="coverPopupModal" tabindex="-1" aria-labelledby="coverPopupModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -164,9 +201,23 @@
               <th>Date:</th>
               <td id="popupDate"></td>
             </tr>
+            <!-- UPC Row with submission option -->
             <tr>
               <th>UPC:</th>
-              <td id="popupUPC"></td>
+              <td id="popupUPCContainer">
+                <span id="popupUPC"></span>
+                <button id="submitUPCBtn" class="btn btn-link btn-sm" style="display: none;">Add UPC</button>
+              </td>
+            </tr>
+            <!-- Hidden UPC submission form row -->
+            <tr id="upcSubmissionRow" style="display: none;">
+              <th colspan="2">
+                <div class="input-group">
+                  <input type="text" id="newUPC" class="form-control" placeholder="Enter UPC (e.g. 759606209088-00311)">
+                  <button id="saveUPCBtn" class="btn btn-primary">Save</button>
+                  <button id="cancelUPCBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+              </th>
             </tr>
             <tr id="popupConditionRow">
               <th>Condition:</th>
@@ -190,6 +241,7 @@
     </div>
   </div>
 </div>
+
 <!-- Send Message Modal for Matches -->
 <div class="modal fade" id="sendMessageModal" tabindex="-1" aria-labelledby="sendMessageModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -221,3 +273,93 @@
     </form>
   </div>
 </div>
+
+<!-- JavaScript for UPC Submission in Cover Popup Modal and UPC Formatting -->
+<script>
+$(document).ready(function(){
+  // When the Cover Popup Modal is shown, check if the UPC is missing or "N/A"
+  $('#coverPopupModal').on('shown.bs.modal', function () {
+    var currentUPC = $('#popupUPC').text().trim();
+    // If UPC is empty or "N/A", clear it and show the Add UPC button.
+    if(currentUPC === "" || currentUPC === "N/A"){
+      $('#popupUPC').text("");  // Clear the display so it aligns with the button.
+      $('#submitUPCBtn').show();
+    } else {
+      $('#submitUPCBtn').hide();
+      $('#upcSubmissionRow').hide();
+    }
+  });
+  
+  // When the "Add UPC" button is clicked, show the UPC input form.
+  $('#submitUPCBtn').on('click', function(){
+    $('#upcSubmissionRow').show();
+    $('#newUPC').val("").focus();
+  });
+  
+  // Cancel UPC submission.
+  $('#cancelUPCBtn').on('click', function(){
+    $('#upcSubmissionRow').hide();
+  });
+  
+  // Function to format the UPC input automatically.
+  // Rule: If total digits (after removing non-digits) are 14 or less, leave as is.
+  // If greater than 14, insert a hyphen after the 12th digit.
+  function formatUPC(input) {
+    let digits = input.replace(/\D/g, '');
+    if (digits.length <= 14) {
+      return digits;
+    } else {
+      return digits.slice(0, 12) + '-' + digits.slice(12);
+    }
+  }
+
+  // Attach an event handler to the UPC input field on blur to auto-format.
+  $('#newUPC').on('blur', function() {
+    let currentVal = $(this).val();
+    let formattedVal = formatUPC(currentVal);
+    $(this).val(formattedVal);
+  });
+  
+  // Save the new UPC.
+  $('#saveUPCBtn').on('click', function(){
+    var newUPC = $('#newUPC').val().trim();
+    // Validate UPC:
+    // If a hyphen is present, require exactly 12 digits before it.
+    if (newUPC.indexOf('-') !== -1) {
+      if (!/^\d{12}-\d+$/.test(newUPC)) {
+        return;
+      }
+    } else {
+      if(newUPC.length > 14) {
+        return;
+      }
+    }
+    // Retrieve the Issue URL from the modal's data.
+    var issueUrl = $('#coverPopupModal').data('issueUrl');
+    if(!issueUrl){
+      return;
+    }
+    // Send the new UPC via AJAX to the backend.
+    $.ajax({
+      url: 'submit_upc.php',
+      method: 'POST',
+      data: { upc: newUPC, issue_url: issueUrl },
+      dataType: 'json',
+      success: function(response){
+        if(response.status === 'success'){
+          // Update the UPC display inline.
+          $('#popupUPC').text(newUPC);
+          // Hide the submission form and button.
+          $('#upcSubmissionRow').hide();
+          $('#submitUPCBtn').hide();
+        } else {
+          console.error('Error: ' + response.message);
+        }
+      },
+      error: function(){
+        console.error('An error occurred while submitting the UPC.');
+      }
+    });
+  });
+});
+</script>

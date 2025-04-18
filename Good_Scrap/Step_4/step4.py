@@ -22,16 +22,33 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/110.0.0.0 Safari/537.36",
 ]
 
+# SQL snippet for filtering based on the "Years" field:
+years_filter = """
+  AND (
+        `Years` LIKE '%Current%' OR 
+        (
+          `Years` REGEXP '^[0-9]{4}$' AND CAST(`Years` AS UNSIGNED) >= 1990
+        ) OR 
+        (
+          `Years` REGEXP '^[0-9]{4}-[0-9]{4}$' AND (
+            CAST(SUBSTRING_INDEX(`Years`, '-', 1) AS UNSIGNED) >= 1990 OR 
+            CAST(SUBSTRING_INDEX(`Years`, '-', -1) AS UNSIGNED) >= 1990
+          )
+        )
+      )
+"""
+
 # ✅ Count new comics (never checked) excluding Gold and Bronze Age comics (Silver Age allowed)
 async def count_new_comics():
     connection = await aiomysql.connect(**db_config)
     async with connection.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("""
+        await cursor.execute(f"""
             SELECT COUNT(*) AS new_entries 
             FROM comics 
-            WHERE (last_checked IS NULL OR last_checked = '')
+            WHERE last_checked IS NULL
               AND `Date` NOT LIKE '%Gold Age%'
               AND `Date` NOT LIKE '%Bronze Age%'
+              {years_filter}
         """)
         new_entries = (await cursor.fetchone())['new_entries']
     connection.close()
@@ -41,7 +58,7 @@ async def count_new_comics():
 async def count_outdated_comics():
     connection = await aiomysql.connect(**db_config)
     async with connection.cursor(aiomysql.DictCursor) as cursor:
-        await cursor.execute("""
+        await cursor.execute(f"""
             SELECT COUNT(*) AS outdated_entries 
             FROM comics 
             WHERE last_checked < DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -49,6 +66,7 @@ async def count_outdated_comics():
               AND `Date` NOT LIKE '%Gold Age%'
               AND `Date` NOT LIKE '%Silver Age%'
               AND `Date` NOT LIKE '%Bronze Age%'
+              {years_filter}
         """)
         outdated_entries = (await cursor.fetchone())['outdated_entries']
     connection.close()
@@ -64,6 +82,7 @@ async def fetch_new_comics(batch_size=1000):
             WHERE (last_checked IS NULL OR last_checked = '')
               AND `Date` NOT LIKE '%Gold Age%'
               AND `Date` NOT LIKE '%Bronze Age%'
+              {years_filter}
             LIMIT {batch_size}
         """)
         comics_data = await cursor.fetchall()
@@ -82,6 +101,7 @@ async def fetch_outdated_comics(batch_size=1000):
               AND `Date` NOT LIKE '%Gold Age%'
               AND `Date` NOT LIKE '%Silver Age%'
               AND `Date` NOT LIKE '%Bronze Age%'
+              {years_filter}
             LIMIT {batch_size}
         """)
         comics_data = await cursor.fetchall()
@@ -146,27 +166,26 @@ async def fetch_upc(session, comic):
 async def update_database(results, processed_comics):
     connection = await aiomysql.connect(**db_config)
     async with connection.cursor() as cursor:
-        # ✅ Update UPCs where found and update last_checked regardless
+        # Update UPCs where found and update last_checked regardless
         for res in results:
+            print("Updating row with Issue_URL:", res['Issue_URL'])
             await cursor.execute(
                 "UPDATE comics SET UPC=%s, last_checked=NOW() WHERE Issue_URL=%s",
                 (res['UPC'] if res['UPC'] else None, res['Issue_URL'])
             )
 
-        # ✅ Ensure last_checked updates for all processed comics (for logging purposes)
+        # Ensure last_checked updates for all processed comics (for logging purposes)
         processed_comics_urls = [comic['Issue_URL'] for comic in processed_comics]
         if processed_comics_urls:
             print(f"\n🛠 Updating last_checked for {len(processed_comics_urls)} comics...")
             affected_rows = await cursor.executemany(
-               "UPDATE comics SET last_checked=NOW() + INTERVAL 0 SECOND WHERE Issue_URL=%s", 
-               [(url,) for url in processed_comics_urls]
+                "UPDATE comics SET last_checked=NOW() + INTERVAL 0 SECOND WHERE Issue_URL=%s", 
+                [(url,) for url in processed_comics_urls]
             )
-
             if affected_rows == 0:
-                 print(f"\n✅ All {len(processed_comics_urls)} rows were already up-to-date.")
+                print(f"\n✅ All {len(processed_comics_urls)} rows were already up-to-date.")
             else:
-                 print(f"\n✅ Expected to update {len(processed_comics_urls)} rows, MySQL actually updated {affected_rows} rows.")
-
+                print(f"\n✅ Expected to update {len(processed_comics_urls)} rows, MySQL actually updated {affected_rows} rows.")
         await connection.commit()
     connection.close()
 

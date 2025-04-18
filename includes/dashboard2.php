@@ -15,15 +15,24 @@ if (!isset($_SESSION['user_id'])) {
 $userId = $_SESSION['user_id'];
 
 // ---------------------------------------------
+// Get user's preferred currency from "users"
+// ---------------------------------------------
+$sqlUserCurrency = "SELECT preferred_currency FROM users WHERE id = ?";
+$stmt = $conn->prepare($sqlUserCurrency);
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$result = $stmt->get_result();
+$row = $result->fetch_assoc();
+$preferredCurrency = $row['preferred_currency'];
+$stmt->close();
+
+// ---------------------------------------------
 // 1) Get WANTED ITEMS stats from "wanted_items"
 // ---------------------------------------------
 $sqlWantedTotal = "SELECT COUNT(*) AS total FROM wanted_items WHERE user_id = ?";
-$sqlWanted24    = "SELECT COUNT(*) AS count24 FROM wanted_items 
-                   WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 1 DAY";
-$sqlWantedWeek  = "SELECT COUNT(*) AS countWeek FROM wanted_items 
-                   WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 7 DAY";
-$sqlWantedMonth = "SELECT COUNT(*) AS countMonth FROM wanted_items 
-                   WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 30 DAY";
+$sqlWanted24    = "SELECT COUNT(*) AS count24 FROM wanted_items WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 1 DAY";
+$sqlWantedWeek  = "SELECT COUNT(*) AS countWeek FROM wanted_items WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 7 DAY";
+$sqlWantedMonth = "SELECT COUNT(*) AS countMonth FROM wanted_items WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 30 DAY";
 
 $stmt = $conn->prepare($sqlWantedTotal);
 $stmt->bind_param("i", $userId);
@@ -57,12 +66,9 @@ $wantedMonth = $row['countMonth'];
 // 2) Get COMICS FOR SALE stats from "comics_for_sale"
 // ---------------------------------------------
 $sqlSaleTotal = "SELECT COUNT(*) AS total FROM comics_for_sale WHERE user_id = ?";
-$sqlSale24    = "SELECT COUNT(*) AS count24 FROM comics_for_sale 
-                 WHERE user_id = ? AND created_at >= NOW() - INTERVAL 1 DAY";
-$sqlSaleWeek  = "SELECT COUNT(*) AS countWeek FROM comics_for_sale 
-                 WHERE user_id = ? AND created_at >= NOW() - INTERVAL 7 DAY";
-$sqlSaleMonth = "SELECT COUNT(*) AS countMonth FROM comics_for_sale 
-                 WHERE user_id = ? AND created_at >= NOW() - INTERVAL 30 DAY";
+$sqlSale24    = "SELECT COUNT(*) AS count24 FROM comics_for_sale WHERE user_id = ? AND created_at >= NOW() - INTERVAL 1 DAY";
+$sqlSaleWeek  = "SELECT COUNT(*) AS countWeek FROM comics_for_sale WHERE user_id = ? AND created_at >= NOW() - INTERVAL 7 DAY";
+$sqlSaleMonth = "SELECT COUNT(*) AS countMonth FROM comics_for_sale WHERE user_id = ? AND created_at >= NOW() - INTERVAL 30 DAY";
 
 $stmt = $conn->prepare($sqlSaleTotal);
 $stmt->bind_param("i", $userId);
@@ -95,17 +101,10 @@ $saleMonth = $row['countMonth'];
 // ---------------------------------------------
 // 3) Get MATCHES stats from "match_notifications"
 // ---------------------------------------------
-$sqlMatchesTotal = "SELECT COUNT(*) AS total FROM match_notifications 
-                    WHERE buyer_id = ? OR seller_id = ?";
-$sqlMatches24    = "SELECT COUNT(*) AS count24 FROM match_notifications 
-                    WHERE (buyer_id = ? OR seller_id = ?) 
-                      AND match_time >= NOW() - INTERVAL 1 DAY";
-$sqlMatchesWeek  = "SELECT COUNT(*) AS countWeek FROM match_notifications 
-                    WHERE (buyer_id = ? OR seller_id = ?) 
-                      AND match_time >= NOW() - INTERVAL 7 DAY";
-$sqlMatchesMonth = "SELECT COUNT(*) AS countMonth FROM match_notifications 
-                    WHERE (buyer_id = ? OR seller_id = ?) 
-                      AND match_time >= NOW() - INTERVAL 30 DAY";
+$sqlMatchesTotal = "SELECT COUNT(*) AS total FROM match_notifications WHERE buyer_id = ? OR seller_id = ?";
+$sqlMatches24    = "SELECT COUNT(*) AS count24 FROM match_notifications WHERE (buyer_id = ? OR seller_id = ?) AND match_time >= NOW() - INTERVAL 1 DAY";
+$sqlMatchesWeek  = "SELECT COUNT(*) AS countWeek FROM match_notifications WHERE (buyer_id = ? OR seller_id = ?) AND match_time >= NOW() - INTERVAL 7 DAY";
+$sqlMatchesMonth = "SELECT COUNT(*) AS countMonth FROM match_notifications WHERE (buyer_id = ? OR seller_id = ?) AND match_time >= NOW() - INTERVAL 30 DAY";
 
 $stmt = $conn->prepare($sqlMatchesTotal);
 $stmt->bind_param("ii", $userId, $userId);
@@ -139,32 +138,16 @@ $stmt->close();
 
 // ---------------------------------------------
 // 4) Get Latest Comics Released from "wanted_items"
-//    (Only show those with an actual image)
+//    (This section has been removed per request.)
 // ---------------------------------------------
-$sqlLatestComics = "SELECT Comic_Title AS comic_title, Issue_Number AS issue_number, Image_Path AS image_path, `Timestamp` 
-                    FROM wanted_items 
-                    WHERE user_id = ? 
-                      AND Image_Path <> 'images/default.jpg'
-                    ORDER BY `Timestamp` DESC 
-                    LIMIT 4";
-$stmt = $conn->prepare($sqlLatestComics);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$resultLatest = $stmt->get_result();
-$latestComics = [];
-while ($row = $resultLatest->fetch_assoc()) {
-    $latestComics[] = $row;
-}
-$stmt->close();
 
 // ---------------------------------------------
 // NEW: Get My Recent Wanted Comics using Issue_URL join
-//    Match wanted_items.Issue_URL with comics.Issue_URL and use the comics.Image_Path
+//    (Match wanted_items.Issue_URL with comics.Issue_URL and use comics.Image_Path)
 // ---------------------------------------------
 $sqlMyRecentWanted = "SELECT w.Comic_Title, w.Issue_Number, w.Issue_URL, c.Image_Path 
                       FROM wanted_items AS w 
-                      LEFT JOIN comics AS c 
-                        ON w.Issue_URL = c.Issue_URL 
+                      LEFT JOIN comics AS c ON w.Issue_URL = c.Issue_URL 
                       WHERE w.user_id = ? 
                       ORDER BY w.ID DESC 
                       LIMIT 4";
@@ -194,29 +177,30 @@ while ($row = $resultMySales->fetch_assoc()) {
 $stmt->close();
 
 // ---------------------------------------------
-// 6) Get the most recent 20 comics listed for sale (all users)
+// 6) Get the most recent 15 comics listed for sale (all users)
+//    Now include comic_condition in the query
 // ---------------------------------------------
-$sqlRecent20 = "SELECT comic_title, issue_number, price, image_path, created_at 
-                FROM comics_for_sale 
-                ORDER BY created_at DESC 
-                LIMIT 20";
-$stmt = $conn->prepare($sqlRecent20);
+$sqlRecent15 = "SELECT c.comic_title, c.issue_number, c.price, c.image_path, c.comic_condition, c.created_at, u.preferred_currency 
+                FROM comics_for_sale c
+                JOIN users u ON c.user_id = u.id
+                ORDER BY c.created_at DESC 
+                LIMIT 15";
+$stmt = $conn->prepare($sqlRecent15);
 $stmt->execute();
-$resultRecent20 = $stmt->get_result();
-$recent20Sales = [];
-while ($row = $resultRecent20->fetch_assoc()) {
-    $recent20Sales[] = $row;
+$resultRecent15 = $stmt->get_result();
+$recent15Sales = [];
+while ($row = $resultRecent15->fetch_assoc()) {
+    $recent15Sales[] = $row;
 }
 $stmt->close();
 
 // ---------------------------------------------
 // 7) Get My Recent Comic Matches from "match_notifications"
-//    Join with the comics table to get the cover image, ordering by match_time
+//    (Join with comics table to get the cover image, ordering by match_time)
 // ---------------------------------------------
 $sqlMyRecentMatches = "SELECT m.comic_title, m.issue_number, m.match_time, c.Image_Path 
                        FROM match_notifications m 
-                       LEFT JOIN comics c 
-                         ON m.comic_title = c.comic_title AND m.issue_number = c.issue_number 
+                       LEFT JOIN comics c ON m.comic_title = c.comic_title AND m.issue_number = c.issue_number 
                        WHERE m.buyer_id = ? OR m.seller_id = ? 
                        ORDER BY m.match_time DESC 
                        LIMIT 4";
@@ -229,6 +213,56 @@ while ($row = $resultMyMatches->fetch_assoc()) {
     $myRecentMatches[] = $row;
 }
 $stmt->close();
+
+// -------------------------
+// Grade Mapping for Abbreviations (use string keys)
+// -------------------------
+$gradeMapping = [
+    "10.0" => "Gem Mint",
+    "9.9"  => "Mint",
+    "9.8"  => "NM/M",
+    "9.6"  => "NM+",
+    "9.4"  => "NM",
+    "9.2"  => "NM-",
+    "9.0"  => "VF/NM",
+    "8.5"  => "VF+",
+    "8.0"  => "VF",
+    "7.5"  => "VF-",
+    "7.0"  => "FN/VF",
+    "6.5"  => "FN+",
+    "6.0"  => "FN",
+    "5.5"  => "FN-",
+    "5.0"  => "VG/FN",
+    "4.5"  => "VG+",
+    "4.0"  => "VG",
+    "3.5"  => "VG-",
+    "3.0"  => "G/VG",
+    "2.5"  => "G",
+    "2.0"  => "G",
+    "1.8"  => "G-",
+    "1.5"  => "Fa/G",
+    "1.0"  => "Fa",
+    "0.5"  => "Poor"
+];
+
+// Helper function to format the score for display
+function formatScore($score) {
+    if (is_numeric($score)) {
+        $floatVal = floatval($score);
+        if ($floatVal == intval($floatVal)) {
+            return intval($floatVal);
+        }
+    }
+    return $score;
+}
+
+// Helper function to get the proper key for the gradeMapping lookup
+function getScoreKey($score) {
+    if (is_numeric($score)) {
+        return number_format(floatval($score), 1);
+    }
+    return $score;
+}
 ?>
 
 <!-- BEGIN: Dashboard Full-Width Layout -->
@@ -250,7 +284,6 @@ $stmt->close();
             </div>
           </div>
         </div>
-        
         <!-- Comics for Sale Card -->
         <div class="col-md-4 mb-3">
           <div class="card text-center shadow-sm">
@@ -263,7 +296,6 @@ $stmt->close();
             </div>
           </div>
         </div>
-        
         <!-- Matches Card -->
         <div class="col-md-4 mb-3">
           <div class="card text-center shadow-sm">
@@ -357,78 +389,65 @@ $stmt->close();
         <?php endif; ?>
       </div>
       
-      <!-- Latest Comics Released Section from wanted_items -->
-      <h3 class="mb-3 mt-5">Latest Comics Released (from Wanted Items)</h3>
-      <div class="row">
-        <?php if (!empty($latestComics)): ?>
-          <?php foreach ($latestComics as $comic):
-                  $rawPath = $comic['image_path'];
-                  $finalImage = getFinalImagePathV2($rawPath);
-                  if ($finalImage === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                      echo '<!-- DEBUG: Wanted Comic "' . htmlspecialchars($comic['comic_title']) .
-                           '" raw image_path: ' . htmlspecialchars($rawPath) . ' | Final: ' . htmlspecialchars($finalImage) . ' -->';
-                  }
-          ?>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImage); ?>"
-                     class="card-img-top"
-                     alt="<?php echo htmlspecialchars($comic['comic_title']); ?>">
-                <div class="card-body">
-                  <h5 class="card-title"><?php echo htmlspecialchars($comic['comic_title']); ?></h5>
-                  <p class="card-text">Issue <?php echo htmlspecialchars($comic['issue_number']); ?></p>
-                </div>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <p class="text-muted">No recent comics available from Wanted Items.</p>
-        <?php endif; ?>
-      </div>
+      <!-- Note: The "Latest Comics Released (from Wanted Items)" section has been removed per request. -->
       
     </div>
     
-    <!-- Right Column: Full Length Table for 20 Recent Comics Listed for Sale -->
+    <!-- Right Column: Latest Comics for Sale -->
     <div class="col-lg-6">
-      <h2 class="mb-4">Latest 20 Comics for Sale</h2>
-      <div class="table-responsive">
+      <h2 class="mb-4">Latest 15 Comics for Sale</h2>
+      <div class="table-responsive mb-5">
         <table class="table table-striped table-bordered">
           <thead class="thead-dark">
             <tr>
-              <th>Image</th>
-              <th>Comic Title</th>
-              <th>Issue Number</th>
-              <th>Price</th>
+              <th style="width:60px;">Image</th>
+              <th>Comic Title / Issue / (Condition)</th>
+              <th style="width:80px;">Price</th>
             </tr>
           </thead>
           <tbody>
-            <?php if (!empty($recent20Sales)): ?>
-              <?php foreach ($recent20Sales as $sale):
-                      $rawPath20 = $sale['image_path'];
-                      $finalImage20 = getFinalImagePathV2($rawPath20);
-                      if ($finalImage20 === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                          echo '<!-- DEBUG: Recent20 Comic "' . htmlspecialchars($sale['comic_title']) .
-                               '" raw image_path: ' . htmlspecialchars($rawPath20) . ' | Final: ' . htmlspecialchars($finalImage20) . ' -->';
+            <?php if (!empty($recent15Sales)): ?>
+              <?php foreach ($recent15Sales as $sale):
+                      $rawPathSale = $sale['image_path'];
+                      $finalImageSale = getFinalImagePathV2($rawPathSale);
+                      // Format comic_condition: if condition ends in .0, display without decimals
+                      $condition = $sale['comic_condition'];
+                      $grade = floatval($condition);
+                      if ($grade == floor($grade)) {
+                          $displayGrade = number_format($grade, 0);
+                      } else {
+                          $displayGrade = $condition;
+                      }
+                      // Round grade to one decimal and convert to string for mapping lookup
+                      $roundedGrade = number_format(round($grade, 1), 1, '.', '');
+                      $abbrev = isset($gradeMapping[$roundedGrade]) ? $gradeMapping[$roundedGrade] : "";
+                      // Combine title, issue number, and condition info into one cell
+                      $combinedTitle = htmlspecialchars($sale['comic_title']) . "<br>" .
+                                       "<small>Issue: " . htmlspecialchars($sale['issue_number']) . "</small><br>" .
+                                       "<small class='text-muted'>" . htmlspecialchars($displayGrade) .
+                                       (!empty($abbrev) ? " (" . $abbrev . ")" : "") . "</small>";
+                      if ($finalImageSale === '/comicsmp/images/comicsmp/placeholder.jpg') {
+                          echo '<!-- DEBUG: Recent Sale Comic "' . htmlspecialchars($sale['comic_title']) .
+                               '" raw image_path: ' . htmlspecialchars($rawPathSale) . ' | Final: ' . htmlspecialchars($finalImageSale) . ' -->';
                       }
               ?>
                 <tr>
                   <td>
                     <?php
-                      if (empty($finalImage20)) {
+                      if (empty($finalImageSale)) {
                           echo "No Image";
                       } else {
-                          echo '<img src="' . htmlspecialchars($finalImage20) . '" alt="' . htmlspecialchars($sale['comic_title']) . '" style="width:50px;height:auto;">';
+                          echo '<img src="' . htmlspecialchars($finalImageSale) . '" alt="' . htmlspecialchars($sale['comic_title']) . '" style="width:50px;height:auto;">';
                       }
                     ?>
                   </td>
-                  <td><?php echo htmlspecialchars($sale['comic_title']); ?></td>
-                  <td><?php echo htmlspecialchars($sale['issue_number']); ?></td>
-                  <td>$<?php echo number_format($sale['price'], 2); ?></td>
+                  <td><?php echo $combinedTitle; ?></td>
+                  <td>$<?php echo number_format($sale['price'], 2); ?> <?php echo htmlspecialchars($sale['preferred_currency']); ?></td>
                 </tr>
               <?php endforeach; ?>
             <?php else: ?>
               <tr>
-                <td colspan="4" class="text-center">No comics listed for sale.</td>
+                <td colspan="3" class="text-center">No comics listed for sale.</td>
               </tr>
             <?php endif; ?>
           </tbody>

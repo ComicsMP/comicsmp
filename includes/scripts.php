@@ -2,6 +2,45 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
+// Define the grade mapping (keys as strings with one decimal place)
+const gradeMapping = {
+  "10.0": "Gem Mint",
+  "9.9": "Mint",
+  "9.8": "NM/M",
+  "9.6": "NM+",
+  "9.4": "NM",
+  "9.2": "NM-",
+  "9.0": "VF/NM",
+  "8.5": "VF+",
+  "8.0": "VF",
+  "7.5": "VF-",
+  "7.0": "FN/VF",
+  "6.5": "FN+",
+  "6.0": "FN",
+  "5.5": "FN-",
+  "5.0": "VG/FN",
+  "4.5": "VG+",
+  "4.0": "VG",
+  "3.5": "VG-",
+  "3.0": "G/VG",
+  "2.5": "G",
+  "2.0": "G",
+  "1.8": "G-",
+  "1.5": "Fa/G",
+  "1.0": "Fa",
+  "0.5": "Poor"
+};
+
+// Generate the dropdown options HTML for condition.
+// For integer values (ending with ".0"), we remove the decimal portion in the display.
+const conditionOptions = Object.entries(gradeMapping).map(([score, abbrev]) => {
+  let displayScore = score;
+  if(score.endsWith(".0")){
+    displayScore = score.replace(".0", "");
+  }
+  return `<option value="${score}">${displayScore} (${abbrev})</option>`;
+}).join("");
+
 document.addEventListener("DOMContentLoaded", () => {
   let searchMode = "startsWith";
   let autoSuggestRequest = null;
@@ -13,20 +52,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Create offcanvas instance so we can close it on year selection.
   var searchOffcanvas = new bootstrap.Offcanvas(document.getElementById('searchFiltersOffcanvas'));
 
-  // 🔥 DELETE FROM WANTED
+  // 🔥 DELETE FROM WANTED using the record's unique ID
   $(document).on("click", ".remove-cover", function() {
     const btn = $(this);
-    const comicTitle = btn.data("comicTitle");
-    const issueNumber = btn.data("issueNumber");
-    const years = btn.data("years");
-    const issueUrl = btn.data("issueUrl");
+    const wantedId = btn.data("id");
     if (confirm("Are you sure you want to remove this from your Wanted list?")) {
-      $.post("deletewanted.php", {
-        comic_title: comicTitle,
-        issue_number: issueNumber,
-        years: years,
-        issue_url: issueUrl
-      }, function(response) {
+      $.post("removeFromWanted.php", { id: wantedId }, function(response) {
         btn.closest(".cover-wrapper").fadeOut();
       }).fail(function() {
         alert("Failed to delete from Wanted list.");
@@ -142,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const comicTitle = $item.data("comicTitle");
       const issueNumber = $item.data("issueNumber");
       const seriesYear = $item.data("years");
-      const issueUrl = $item.data("issueUrl");
+      const issueUrl = $item.data("issueUrl"); // Should be defined as data-issue-url in HTML.
       // Build Wanted button.
       let wantedBtn = $(`<button class="btn btn-primary add-to-wanted">Wanted</button>`)
             .attr("data-series-name", comicTitle)
@@ -170,31 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <label>Condition:</label>
                 <select name="condition" class="form-select" required>
                   <option value="">Select Condition</option>
-                  <option value="10">10</option>
-                  <option value="9.9">9.9</option>
-                  <option value="9.8">9.8</option>
-                  <option value="9.6">9.6</option>
-                  <option value="9.4">9.4</option>
-                  <option value="9.2">9.2</option>
-                  <option value="9.0">9.0</option>
-                  <option value="8.5">8.5</option>
-                  <option value="8.0">8.0</option>
-                  <option value="7.5">7.5</option>
-                  <option value="7.0">7.0</option>
-                  <option value="6.5">6.5</option>
-                  <option value="6.0">6.0</option>
-                  <option value="5.5">5.5</option>
-                  <option value="5.0">5.0</option>
-                  <option value="4.5">4.5</option>
-                  <option value="4.0">4.0</option>
-                  <option value="3.5">3.5</option>
-                  <option value="3.0">3.0</option>
-                  <option value="2.5">2.5</option>
-                  <option value="2.0">2.0</option>
-                  <option value="1.8">1.8</option>
-                  <option value="1.5">1.5</option>
-                  <option value="1.0">1.0</option>
-                  <option value="0.5">0.5</option>
+                  ${conditionOptions}
                 </select>
               </div>
               <div class="mb-2">
@@ -389,6 +396,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadMainIssues() {
     const comicTitle = $("#comicTitle").val();
     const year = $("#yearSelect").val();
+    // If variants are enabled, set only_main to 0 (include variants); otherwise 1 (only main issues)
     const includeVariantsEnabled = $("#variantToggleMain").attr("data-enabled") === "1" ? 1 : 0;
     const params = { 
       comic_title: comicTitle, 
@@ -396,23 +404,19 @@ document.addEventListener("DOMContentLoaded", () => {
       year: year, 
       country: $("#countrySelect").val() 
     };
+    // Preserve the current dropdown selection (default to "All")
+    let currentSelection = $("#issueSelectMain").val() || "All";
     $.get("getIssues.php", params, function(data) {
-      $("#issueSelect").html("<option value='All'>All</option>" + data);
-      $("#issueSelectMain").html("<option value='All'>All</option>" + data);
+      // Always start with the "All" option, which will include variants if enabled.
+      let optionsHtml = "<option value='All'>All</option>" + data;
+      $("#issueSelectMain").html(optionsHtml);
+      // Re-select the previously chosen option if it still exists.
+      if ($("#issueSelectMain option[value='" + currentSelection + "']").length) {
+        $("#issueSelectMain").val(currentSelection);
+      }
       performSearch();
     });
   }
-
-  $("#variantToggle").on("click", function() {
-    let enabled = $(this).attr("data-enabled") === "1" ? 0 : 1;
-    $(this).attr("data-enabled", enabled);
-    if (enabled == 1) {
-      $(this).removeClass("btn-outline-primary").addClass("btn-primary");
-    } else {
-      $(this).removeClass("btn-primary").addClass("btn-outline-primary");
-    }
-    performSearch();
-  });
 
   // -------------------------------
   // MODAL FUNCTIONALITY (Wanted, Sale, Matches)
@@ -472,7 +476,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // -------------------------------
   // Popup Modal for Cover Image in Gallery Items.
+  // -------------------------------
   $(document).on("click", ".gallery-item img", function(e) {
     if ($(e.target).closest("button").length) return;
     $(".similar-issues").show();
@@ -483,7 +489,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const issueNumber = parent.data("issueNumber") || "N/A";
     const tab = parent.data("tab") || "N/A";
     const variant = parent.data("variant") || "N/A";
-    const date = parent.attr("data-date") || "N/A";
+    const date = parent.data("date") || "N/A";
+    const upc = parent.data("upc") || "N/A";
+    
+    // Retrieve the issue URL using the correct attribute name.
+    const issueUrl = parent.data("issueUrl") || parent.data("issue-url") || "";
+    console.log("Issue URL from gallery item:", issueUrl);
+    
+    // Populate modal fields.
     $("#popupMainImage").attr("src", fullImageUrl);
     $("#popupComicTitle").text(comicTitle);
     $("#popupYears").text(years);
@@ -491,16 +504,23 @@ document.addEventListener("DOMContentLoaded", () => {
     $("#popupTab").text(tab);
     $("#popupVariant").text(variant);
     $("#popupDate").text(date);
-    const upc = parent.data("upc") || "N/A";
     $("#popupUPC").text(upc);
+    
+    // Set the Issue URL on the modal for UPC submission.
+    $("#coverPopupModal").data("issueUrl", issueUrl);
+    
+    // Hide condition, graded, price rows (if not needed for search)
     $("#popupConditionRow, #popupGradedRow, #popupPriceRow").hide();
+    
     loadSimilarIssues(comicTitle, years, issueNumber, false);
     var modalEl = document.getElementById("coverPopupModal");
     var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
     modalInstance.show();
   });
 
+  // -------------------------------
   // Popup Modal for Cover Image in Wanted/Sale Covers.
+  // -------------------------------
   $(document).on("click", ".cover-img", function(e) {
     e.preventDefault();
     $(".similar-issues").hide();
@@ -525,7 +545,9 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.show();
   });
 
+  // -------------------------------
   // Popup Modal for Match Cover Images.
+  // -------------------------------
   $(document).on("click", ".match-cover-img", function(e) {
     e.preventDefault();
     var $img = $(this);

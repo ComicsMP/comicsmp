@@ -18,23 +18,22 @@ $items = [];
 if ($folder == 'inbox') {
     $sql = "
         SELECT 
-            pm.conversation_id, 
-            u.username AS other_user, 
-            (CASE WHEN pm.recipient_id = ? THEN pm.sender_id ELSE pm.recipient_id END) AS other_user_id,
+            c.id AS conversation_id,
+            u.username AS other_user,
+            u.id AS other_user_id,
             MAX(pm.sent_at) AS latest_msg_time,
-            (SELECT message FROM private_messages WHERE conversation_id = pm.conversation_id ORDER BY sent_at DESC LIMIT 1) AS latest_message,
-            (SELECT COUNT(*) FROM private_messages WHERE conversation_id = pm.conversation_id AND recipient_id = ? AND is_read = 0) AS unread_count,
-            COUNT(*) AS total_messages,
-            COUNT(CASE WHEN FIND_IN_SET(?, pm.deleted_for_user) > 0 THEN 1 END) AS deleted_count
-        FROM private_messages pm
-        JOIN users u ON (pm.sender_id = u.id OR pm.recipient_id = u.id) AND u.id != ?
-        WHERE (pm.recipient_id = ?)
-        GROUP BY pm.conversation_id, other_user
-        HAVING total_messages > deleted_count
+            (SELECT message FROM private_messages WHERE conversation_id = c.id ORDER BY sent_at DESC LIMIT 1) AS latest_message,
+            (SELECT COUNT(*) FROM private_messages WHERE conversation_id = c.id AND recipient_id = ? AND is_read = 0) AS unread_count
+        FROM conversations c
+        JOIN users u ON (u.id = IF(c.user1_id = ?, c.user2_id, c.user1_id))
+        LEFT JOIN private_messages pm ON pm.conversation_id = c.id
+        WHERE ? IN (c.user1_id, c.user2_id)
+        GROUP BY c.id
         ORDER BY latest_msg_time DESC
     ";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iiiii", $user_id, $user_id, $user_id, $user_id, $user_id);
+    $stmt->bind_param("iii", $user_id, $user_id, $user_id);
+
 } elseif ($folder == 'sent') {
     $sql = "
         SELECT 

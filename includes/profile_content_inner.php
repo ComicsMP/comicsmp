@@ -19,11 +19,12 @@ $flash_success = $_SESSION['flash_success'] ?? '';
 $flash_error   = $_SESSION['flash_error'] ?? '';
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-// Fetch user data with merged currency field
+// Fetch user data (now returning preferred_currency directly)
 $query = "SELECT username, email, phone, city, bio, profile_picture, joined_date,
-                COALESCE(preferred_currency, currency) AS currency,
+                preferred_currency,
                 notifications, preferred_transaction,
-                preferred_payment, facebook, twitter, instagram, rating
+                preferred_payment, facebook, twitter, instagram, rating,
+                latitude, longitude
           FROM users
           WHERE id = ?";
 $stmt = $conn->prepare($query);
@@ -65,14 +66,14 @@ $payment_methods = ["Cash", "E-Transfer", "PayPal"];
 // Handle profile updates if form submitted via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Basic details update
-    if (isset($_POST['nickname'], $_POST['email'], $_POST['city'], $_POST['currency'])) {
+    if (isset($_POST['nickname'], $_POST['email'], $_POST['city'], $_POST['preferred_currency'])) {
         $nickname = trim($_POST['nickname']);
         $email    = trim($_POST['email']);
         $phone    = trim($_POST['phone'] ?? '');
         $city     = trim($_POST['city']);
         $bio      = trim($_POST['bio'] ?? '');
-        $currency = trim($_POST['currency']);
-        $notifications      = isset($_POST['notifications']) ? 1 : 0;
+        $preferred_currency = trim($_POST['preferred_currency']);
+        $notifications = isset($_POST['notifications']) ? 1 : 0;
         
         // Convert arrays to comma-separated strings
         $selected_transactions = isset($_POST['preferred_transaction'])
@@ -87,27 +88,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $twitter   = trim($_POST['twitter']   ?? '');
         $instagram = trim($_POST['instagram'] ?? '');
         
+        // Retrieve latitude and longitude (if detected)
+        $latitude = isset($_POST['latitude']) ? trim($_POST['latitude']) : null;
+        $longitude = isset($_POST['longitude']) ? trim($_POST['longitude']) : null;
+        
+        // Updated query to update both preferred_currency and currency
         $updateQuery = "UPDATE users
                         SET username = ?, email = ?, phone = ?, city = ?, bio = ?,
-                            currency = ?, notifications = ?,
+                            preferred_currency = ?, currency = ?,
+                            notifications = ?,
                             preferred_transaction = ?, preferred_payment = ?,
-                            facebook = ?, twitter = ?, instagram = ?
+                            facebook = ?, twitter = ?, instagram = ?,
+                            latitude = ?, longitude = ?
                         WHERE id = ?";
         $stmt = $conn->prepare($updateQuery);
         $stmt->bind_param(
-            "ssssssisssssi",
+            "sssssssisssssddi",
             $nickname,
             $email,
             $phone,
             $city,
             $bio,
-            $currency,
+            $preferred_currency,
+            $preferred_currency, // updating "currency" with the same value
             $notifications,
             $selected_transactions,
             $selected_payments,
             $facebook,
             $twitter,
             $instagram,
+            $latitude,
+            $longitude,
             $user_id
         );
         
@@ -215,6 +226,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <!-- New status message area -->
               <div id="locationStatus" style="margin-top: 5px; font-size: 0.9em; color: #007bff;"></div>
             </div>
+            <!-- Hidden fields for latitude and longitude -->
+            <input type="hidden" name="latitude" id="latitude" value="<?= htmlspecialchars($user['latitude'] ?? '') ?>">
+            <input type="hidden" name="longitude" id="longitude" value="<?= htmlspecialchars($user['longitude'] ?? '') ?>">
             <div class="mb-3">
               <label class="form-label">About Me</label>
               <textarea name="bio" class="form-control" rows="3"><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
@@ -234,9 +248,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="accordion-body">
             <div class="mb-3">
               <label class="form-label">Preferred Currency</label>
-              <select name="currency" class="form-select">
+              <select name="preferred_currency" class="form-select">
                 <?php foreach ($currencies as $curr): ?>
-                  <option value="<?= $curr ?>" <?= ($user['currency'] == $curr) ? 'selected' : '' ?>>
+                  <option value="<?= $curr ?>" <?= ($user['preferred_currency'] == $curr) ? 'selected' : '' ?>>
                     <?= $curr ?>
                   </option>
                 <?php endforeach; ?>
@@ -373,6 +387,9 @@ function successCallback(position) {
           }
           if (city) {
             document.getElementById('city').value = city;
+            // Update hidden fields for latitude and longitude
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
             document.getElementById("locationStatus").innerText = "Location detected: " + city;
           } else {
             document.getElementById("locationStatus").innerText = "";
@@ -399,5 +416,3 @@ function errorCallback(error) {
 }
 </script>
 
-<!-- Include Google Maps API -->
-<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBQ_S-MNLPXfeguaEQ1dOpww8vAo9bXJIw&libraries=places"></script>

@@ -52,19 +52,15 @@ $sql = "
            c.Image_Path AS Comic_Image_Path, c.Tab, c.Variant, c.`Date` AS comic_date, s.Issue_URL AS issue_url, c.UPC
     FROM comics_for_sale s
     LEFT JOIN comics c ON s.Issue_URL = c.Issue_URL
-    WHERE s.Comic_Title = ? AND s.Years = ? AND s.Issue_URL IN ($placeholders)
-    GROUP BY s.Issue_URL
+    WHERE s.user_id = ? AND s.Comic_Title = ? AND s.Years = ? AND s.Issue_URL IN ($placeholders)
     ORDER BY CAST(REGEXP_SUBSTR(s.Issue_Number, '^[0-9]+') AS UNSIGNED), s.Issue_Number ASC
 ";
 
-$stmt = $conn->prepare($sql);
-if(!$stmt) {
-    echo "DB Error: " . $conn->error;
-    exit;
-}
-$types = 'ss' . str_repeat('s', count($issue_urls));
-$params = array_merge([$comic_title, $years], $issue_urls);
+// Updated params
+$types = 'iss' . str_repeat('s', count($issue_urls));
+$params = array_merge([$user_id, $comic_title, $years], $issue_urls);
 
+$stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -73,13 +69,10 @@ $output = '<div class="d-flex flex-wrap justify-content-center">';
 
 while ($row = $result->fetch_assoc()) {
     // Updated image-path logic:
-    // Determine sale image path first.
     $rawPath = trim($row['Image_Path'] ?? '');
-    // If sale image is empty or equals 'null' or is a placeholder, try the comic's image:
     if (empty($rawPath) || strtolower($rawPath) === 'null' || strtolower(basename($rawPath)) === 'placeholder.jpg') {
         $rawPath = trim($row['Comic_Image_Path'] ?? '');
     }
-    // If still empty, use the placeholder (force absolute URL)
     if (empty($rawPath) || strtolower($rawPath) === 'null') {
         $imgPath = 'http://' . $_SERVER['HTTP_HOST'] . '/comicsmp/placeholder.jpg';
     } elseif (filter_var($rawPath, FILTER_VALIDATE_URL)) {
@@ -94,7 +87,6 @@ while ($row = $result->fetch_assoc()) {
         $imgPath = '/comicsmp/images/' . $rawPath;
     }
     
-    // Process Issue_Number and ensure it has a '#' prefix.
     $issue = trim($row['Issue_Number'] ?? '');
     if (!empty($issue) && strpos($issue, '#') !== 0) {
         $issue = '#' . $issue;
@@ -105,14 +97,13 @@ while ($row = $result->fetch_assoc()) {
     $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
     $issue_url = htmlspecialchars($row['issue_url'] ?? '');
     
-    // Retrieve additional sale details.
     $listing_id = htmlspecialchars($row['listing_id'] ?? '');
     $condition = htmlspecialchars($row['comic_condition'] ?? '');
     $price_val = floatval($row['price'] ?? 0);
     $priceFormatted = number_format($price_val, 2);
     $graded = htmlspecialchars($row['graded'] ?? '');
     $gradedText = ($graded == "1") ? "Yes" : "No";
-    $upc = htmlspecialchars($row['UPC'] ?? 'N/A'); // ✅ Added UPC field (ONLY for popup)
+    $upc = htmlspecialchars($row['UPC'] ?? 'N/A');
     
     $output .= '<div class="position-relative m-2 cover-wrapper" style="width: 150px;" 
     data-comic-title="' . htmlspecialchars($comic_title) . '" 
@@ -136,7 +127,6 @@ while ($row = $result->fetch_assoc()) {
     data-years="' . htmlspecialchars($years) . '" 
     data-issue-number="' . htmlspecialchars($issue) . '" 
     title="Edit">E</button>';
-
     
     $output .= '<button class="remove-sale" 
     style="position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" 
@@ -149,9 +139,8 @@ while ($row = $result->fetch_assoc()) {
     $output .= '<div class="text-center small">Price: $' . $priceFormatted . ' ' . htmlspecialchars($currency) . '</div>';
     
     $output .= '</div>';
-}  // <-- Added missing closing brace for while loop
+}
 
-// Close the container div
 $output .= '</div>';
 
 $stmt->close();

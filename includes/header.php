@@ -85,3 +85,6 @@ if (isset($_SESSION['user_id'])) {
     <a href="login.php" class="btn btn-outline-light btn-sm">Login / Register</a>
   <?php endif; ?>
 </div>
+
+<!-- Include Google Maps API -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBQ_S-MNLPXfeguaEQ1dOpww8vAo9bXJIw&libraries=places"></script>

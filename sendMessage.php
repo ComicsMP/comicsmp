@@ -29,21 +29,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Check if an existing conversation exists
-    $sqlCheck = "SELECT conversation_id FROM private_messages WHERE 
-                 (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?) LIMIT 1";
-    $stmtCheck = $conn->prepare($sqlCheck);
-    $stmtCheck->bind_param("iiii", $user_id, $recipient_id, $recipient_id, $user_id);
-    $stmtCheck->execute();
-    $resultCheck = $stmtCheck->get_result();
-    $existingConversation = $resultCheck->fetch_assoc();
-    $stmtCheck->close();
+   $user1 = min($user_id, $recipient_id);
+$user2 = max($user_id, $recipient_id);
 
-    if ($existingConversation && !empty($existingConversation['conversation_id'])) {
-        $conversation_id = $existingConversation['conversation_id'];
-    } else {
-        // Generate a unique conversation ID
-        $conversation_id = uniqid();
-    }
+// Check or create conversation
+$sqlConv = "SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?";
+$stmtConv = $conn->prepare($sqlConv);
+$stmtConv->bind_param("ii", $user1, $user2);
+$stmtConv->execute();
+$resultConv = $stmtConv->get_result();
+$existingConv = $resultConv->fetch_assoc();
+$stmtConv->close();
+
+if ($existingConv) {
+    $conversation_id = $existingConv['id'];
+} else {
+    $sqlInsertConv = "INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)";
+    $stmtInsertConv = $conn->prepare($sqlInsertConv);
+    $stmtInsertConv->bind_param("ii", $user1, $user2);
+    $stmtInsertConv->execute();
+    $conversation_id = $stmtInsertConv->insert_id;
+    $stmtInsertConv->close();
+}
+
 
     // Insert the new message with the correct conversation_id
     $sqlInsert = "INSERT INTO private_messages (sender_id, recipient_id, message, conversation_id) VALUES (?, ?, ?, ?)";

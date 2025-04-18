@@ -13,6 +13,31 @@ require_once __DIR__ . '/../db_connection.php'; // this fixes the fatal error
 
 $user_id = $_SESSION['user_id'] ?? 0;
 
+// --- Helper: Calculate Distance using Haversine Formula ---
+function calculateDistance($lat1, $lon1, $lat2, $lon2, $unit = "M") {
+    // Convert degrees to radians
+    $lat1 = deg2rad($lat1);
+    $lon1 = deg2rad($lon1);
+    $lat2 = deg2rad($lat2);
+    $lon2 = deg2rad($lon2);
+    
+    $dlon = $lon2 - $lon1;
+    $dlat = $lat2 - $lat1;
+    $a = pow(sin($dlat/2), 2) + cos($lat1) * cos($lat2) * pow(sin($dlon/2), 2);
+    $c = 2 * asin(sqrt($a));
+    // Radius of earth in miles
+    $r = 3956;
+    $miles = $c * $r;
+    
+    if ($unit == "K") {
+        return $miles * 1.609344;
+    } else if ($unit == "N") {
+        return $miles * 0.8684;
+    } else {
+        return $miles;
+    }
+}
+
 // --- Helper: Normalize image paths (Original) ---
 function getFinalImagePath($rawPath) {
     $raw = trim($rawPath ?? '');
@@ -40,35 +65,20 @@ function getFinalImagePath($rawPath) {
 }
 
 // --- Helper: Normalize image paths (Version 2) ---
-// Use this function in pages where you see duplicate folder issues.
-// It removes any leading slash from the raw value and ensures a clean URL.
 function getFinalImagePathV2($rawPath) {
-    // Remove leading spaces and any leading slash
     $raw = ltrim(trim($rawPath ?? ''), '/');
-    
-    // Return a placeholder if empty or "null"
     if (empty($raw) || strtolower($raw) === 'null') {
         return '/comicsmp/placeholder.jpg';
     }
-    
-    // If already a full URL, return it unchanged
     if (filter_var($rawPath, FILTER_VALIDATE_URL)) {
         return $rawPath;
     }
-    
-    // Replace any duplicated segments "images/images/" with "images/"
     $raw = str_replace('images/images/', 'images/', $raw);
     $raw = preg_replace('#^(images/){2,}#i', 'images/', $raw);
-    
-    // Ensure the path begins with "images/"
     if (strpos($raw, 'images/') !== 0) {
          $raw = 'images/' . $raw;
     }
-    
-    // Build the final path
     $final = '/comicsmp/' . $raw;
-    
-    // Append ".jpg" if no file extension exists
     if (empty(pathinfo($final, PATHINFO_EXTENSION))) {
         $final .= '.jpg';
     }
@@ -132,6 +142,7 @@ while ($row = $resultSale->fetch_assoc()) {
 $stmt2->close();
 
 // --- FETCH MATCHES ---
+// Updated query: Use COALESCE to use cs.seller_currency if available (after TRIM), otherwise fallback to seller.currency.
 $sqlMatches = "
     SELECT 
         mn.id, 
@@ -147,9 +158,19 @@ $sqlMatches = "
         mn.seller_id,
         cs.comic_condition,
         cs.graded,
-        cs.price
+        cs.price,
+        COALESCE(NULLIF(TRIM(cs.seller_currency), ''), seller.currency) AS currency,
+        buyer.city AS buyer_city,
+        buyer.latitude AS buyer_lat,
+        buyer.longitude AS buyer_lng,
+        seller.city AS seller_city,
+        seller.latitude AS seller_lat,
+        seller.longitude AS seller_lng
     FROM match_notifications mn
-    LEFT JOIN comics_for_sale cs ON (cs.issue_url = mn.issue_url AND cs.user_id = mn.seller_id)
+    LEFT JOIN comics_for_sale cs 
+         ON (TRIM(mn.issue_url) = TRIM(cs.issue_url) AND cs.user_id = mn.seller_id)
+    LEFT JOIN users buyer ON buyer.id = mn.buyer_id
+    LEFT JOIN users seller ON seller.id = mn.seller_id
     WHERE (mn.buyer_id = ? OR mn.seller_id = ?)
     ORDER BY mn.match_time DESC
 ";
@@ -160,6 +181,13 @@ $resultMatches = $stmtMatches->get_result();
 $matches = [];
 $otherUserIds = [];
 while ($row = $resultMatches->fetch_assoc()) {
+    // Calculate distance if both buyer and seller coordinates are available.
+    if (!empty($row['buyer_lat']) && !empty($row['buyer_lng']) && !empty($row['seller_lat']) && !empty($row['seller_lng'])) {
+        $distance = calculateDistance($row['buyer_lat'], $row['buyer_lng'], $row['seller_lat'], $row['seller_lng'], "M");
+        $row['distance'] = number_format($distance, 1) . " miles";
+    } else {
+        $row['distance'] = "N/A";
+    }
     $matches[] = $row;
     if ($row['buyer_id'] == $user_id) {
         $otherUserIds[] = $row['seller_id'];
@@ -206,4 +234,9 @@ $stmtUser->close();
 if (!$currency) {
     $currency = 'USD';
 }
+
+// Uncomment the following lines to debug the grouped matches data:
+// echo '<pre>';
+// print_r($groupedMatches);
+// echo '</pre>';
 ?>

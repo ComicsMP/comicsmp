@@ -3,8 +3,8 @@ import sys
 import time
 from datetime import datetime
 
-XAMPP_PATH = r"C:\xampp6\xampp_start.exe"     # Update if needed
-XAMPP_STOP_PATH = r"C:\xampp6\xampp_stop.exe"   # Update if needed
+XAMPP_PATH = r"C:\xampp6\xampp_start.exe"      # Update if needed
+XAMPP_STOP_PATH = r"C:\xampp6\xampp_stop.exe"  # Update if needed
 
 def is_mysql_running():
     """
@@ -97,12 +97,16 @@ def main():
     run_script("step5.py", "Step 5: Organizing Volume Numbers", "Good_Scrap/Step_5")
 
     # Step 6: Correcting issue numbers missing the '#' sign
-    run_script("step6.py", "Step 6: Correcting issue numbers missing the '#' sign", r"Good_Scrap\Step_6")
+    run_script("step6.py", "Step 6: Correcting issue numbers missing the '#' sign", r"Good_Scrap/Step_6")
 
-    # Step 7: Indexing New Covers for Mobile Scanning (moved from Step 6)
-    run_script("step7.py", "Step 7: Indexing New Covers for Mobile Scanning", "Faiss_Mobile_Matching")
+    # Step 7: Removing duplicated words in `Variant`
+    run_script("step7.py", "Step 7: Removing duplicated words in `Variant`", "Good_Scrap/Step_7")
+
+    # Step 8: Indexing New Covers for Mobile Scanning (old Step 7 moved here)
+    run_script("step8.py", "Step 8: Indexing New Covers for Mobile Scanning", "Faiss_Mobile_Matching")
 
     print("\n✅ All steps completed successfully!")
+    
     # Stop MySQL after all steps are done
     stop_mysql()
 

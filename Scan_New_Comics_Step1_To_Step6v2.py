@@ -109,8 +109,11 @@ def main():
     # Step 6: Correcting issue numbers missing the '#' sign
     run_script("step6.py", "Step 6: Correcting issue numbers missing the '#' sign", r"Good_Scrap\Step_6")
 
-    # Step 7: Indexing New Covers for Mobile Scanning
-    run_script("step7.py", "Step 7: Indexing New Covers for Mobile Scanning", "Faiss_Mobile_Matching")
+    # Step 7: Removing duplicated words in `Variant` (NEW)
+    run_script("step7.py", "Step 7: Removing duplicated words in `Variant`", "Good_Scrap/Step_7")
+
+    # Step 8: Indexing New Covers for Mobile Scanning (old Step 7 is now Step 8)
+    run_script("step8.py", "Step 8: Indexing New Covers for Mobile Scanning", "Faiss_Mobile_Matching")
 
     print("\n✅ All steps completed successfully!")
 

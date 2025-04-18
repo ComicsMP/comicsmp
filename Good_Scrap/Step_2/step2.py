@@ -55,6 +55,19 @@ def compute_unique_id(comic_title, issue_number, issue_url):
     identifier = f"{norm_title}-{norm_issue}-{norm_url}"
     return hashlib.sha256(identifier.encode('utf-8')).hexdigest()
 
+def fix_glued_variant(text):
+    """
+    Fix glued duplicates in the Variant field.
+    Looks for repeated segments and trims the duplicate part.
+    """
+    if pd.isna(text) or len(str(text)) < 20:
+        return text
+    for size in range(10, 51):  # Check chunks from 10 to 50 characters
+        chunk = text[:size]
+        if chunk and text.count(chunk) > 1:
+            return text[:text.find(chunk, size)].strip()
+    return text
+
 async def download_image(session, url, unique_id, semaphore, attempt=1):
     """
     Download an image from the URL and save it as '<unique_id>.jpg' in the designated directory.
@@ -103,6 +116,7 @@ async def process_file(file_path):
       - Computes Unique_ID for each row.
       - Downloads images asynchronously.
       - Updates 'Image_Path', 'Unique_ID', 'Timestamp', and 'Image_URL' in the dataframe.
+      - Cleans up the Variant field.
       - Saves the updated file.
     """
     try:
@@ -186,6 +200,10 @@ async def process_file(file_path):
                            ['Image_URL', 'Image_Path', 'Unique_ID', 'Timestamp']] = [url, path, new_unique_id, timestamp]
             except Exception as e:
                 logging.error(f"Error processing a download task: {e}")
+
+    # Clean up the Variant column using the fix_glued_variant function
+    if 'Variant' in df.columns:
+        df['Variant'] = df['Variant'].apply(fix_glued_variant)
 
     new_file_path = file_path.parent / f"processed_{file_path.stem}_updated.xlsx"
     try:
