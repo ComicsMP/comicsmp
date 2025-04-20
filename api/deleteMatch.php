@@ -15,27 +15,31 @@ if (!isset($_SESSION['user_id'])) {
 $userId = $_SESSION['user_id'];
 
 // Check if match_user_id is provided.
-if (!isset($_POST['match_user_id']) || empty($_POST['match_user_id'])) {
+if (empty($_POST['match_user_id'])) {
     echo json_encode(["status" => "error", "message" => "Missing match_user_id parameter."]);
     exit;
 }
 
 $matchUserId = intval($_POST['match_user_id']);
 
-// Insert a record into hidden_matches table if it doesn't already exist.
-// You can use INSERT IGNORE if you want to prevent duplicate entries.
-$sql = "INSERT IGNORE INTO hidden_matches (user_id, match_user_id) VALUES (?, ?)";
+// Soft‑delete: mark this match as permanently deleted for this user
+$sql = "
+    INSERT INTO hidden_matches (user_id, match_user_id, is_deleted)
+    VALUES (?, ?, 1)
+    ON DUPLICATE KEY UPDATE is_deleted = 1
+";
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
     echo json_encode(["status" => "error", "message" => "Database error: " . $conn->error]);
     exit;
 }
+
 $stmt->bind_param("ii", $userId, $matchUserId);
 if ($stmt->execute()) {
     echo json_encode(["status" => "success", "message" => "Match deleted successfully."]);
 } else {
     echo json_encode(["status" => "error", "message" => "Failed to delete match."]);
 }
+
 $stmt->close();
 $conn->close();
-?>

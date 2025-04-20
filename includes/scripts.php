@@ -547,52 +547,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // -------------------------------
   // Popup Modal for Match Cover Images.
-  // -------------------------------
-  $(document).on("click", ".match-cover-img", function(e) {
-    e.preventDefault();
-    var $img = $(this);
-    var src = $img.attr("src");
-    var comicTitle = $img.data("comicTitle") || "N/A";
-    var years = $img.data("years") || "N/A";
-    var issueNumber = $img.data("issueNumber") || "N/A";
-    $("#popupConditionRow, #popupGradedRow, #popupPriceRow").show();
-    var condition = $img.data("condition") || "N/A";
-    var graded = $img.data("graded") || "N/A";
-    var price = $img.data("price") || "N/A";
-    $(".similar-issues").hide();
-    $("#popupMainImage").attr("src", src);
-    $("#popupComicTitle").text(comicTitle);
-    $("#popupYears").text(years);
-    $("#popupIssueNumber").text(issueNumber);
-    $("#popupTab").text("Loading...");
-    $("#popupVariant").text("Loading...");
-    $("#popupDate").text("Loading...");
-    $("#popupCondition").text(condition);
-    $("#popupGraded").text(graded);
-    $("#popupPrice").text(price);
-    $.ajax({
-      url: "getMatchComicDetails.php",
-      method: "GET",
-      dataType: "json",
-      data: { comic_title: comicTitle, years: years, issue_number: issueNumber },
-      success: function(data) {
-        $("#popupTab").text(data.Tab || "N/A");
-        $("#popupVariant").text(data.Variant || "N/A");
-        $("#popupDate").text(data.Date || "N/A");
-        $("#popupUPC").text(data.upc || "N/A");
-        if(data.comic_condition) { $("#popupCondition").text(data.comic_condition); }
-        if(data.graded) { $("#popupGraded").text(data.graded); }
-        if(data.price) { $("#popupPrice").text(data.price); }
-      },
-      error: function() {
-        $("#popupTab").text("N/A");
-        $("#popupVariant").text("N/A");
-        $("#popupDate").text("N/A");
+// -------------------------------
+$(document).on("click", ".match-cover-img", function(e) {
+  e.preventDefault();
+  var $img = $(this);
+  var src = $img.attr("src");
+  var comicTitle  = $img.data("comicTitle")   || "N/A";
+  var years       = $img.data("years")        || "N/A";
+  var issueNumber = $img.data("issueNumber")  || "N/A";
+  var condition   = $img.data("condition")    || "N/A";
+  var graded      = $img.data("graded")       || "N/A";
+  var price       = $img.data("price")        || "N/A";
+  var currency    = $img.data("currency")     || "";    // ← new
+  // show all rows
+  $("#popupConditionRow, #popupGradedRow, #popupPriceRow").show();
+  
+  // populate
+  $(".similar-issues").hide();
+  $("#popupMainImage").attr("src", src);
+  $("#popupComicTitle").text(comicTitle);
+  $("#popupYears").text(years);
+  $("#popupIssueNumber").text(issueNumber);
+  $("#popupCondition").text(condition);
+  $("#popupGraded").text(graded);
+  // ← updated Price line:
+  $("#popupPrice").text(price + (currency ? " "+currency : ""));
+  
+  // now fetch the rest
+  $.ajax({
+    url: "getMatchComicDetails.php",
+    method: "GET",
+    dataType: "json",
+    data: {
+      comic_title:   comicTitle,
+      years:         years,
+      issue_number:  issueNumber
+    },
+    success: function(data) {
+      $("#popupTab").text(data.Tab      || "N/A");
+      $("#popupVariant").text(data.Variant || "N/A");
+      $("#popupDate").text(data.Date    || "N/A");
+      $("#popupUPC").text(data.upc      || "N/A");
+      if (data.comic_condition) { $("#popupCondition").text(data.comic_condition); }
+      if (data.graded)          { $("#popupGraded").text(data.graded); }
+      if (data.price) {
+        // append same currency
+        $("#popupPrice").text(data.price + (currency ? " "+currency : ""));
       }
-    });
-    var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
-    modal.show();
+    },
+    error: function() {
+      $("#popupTab, #popupVariant, #popupDate").text("N/A");
+    }
   });
+
+  // fire up Bootstrap modal
+  var modal = new bootstrap.Modal(document.getElementById("coverPopupModal"));
+  modal.show();
+});
+
 
   $(document).on("click", "#showAllSimilarIssues", function() {
     const comicTitle = $("#popupComicTitle").text() || "";

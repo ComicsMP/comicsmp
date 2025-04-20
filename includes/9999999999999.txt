@@ -1,0 +1,55 @@
+Two ways to fix it
+Re‑initialize after your AJAX load
+In your dashboard code, wherever you do something like:
+
+js
+Copy
+Edit
+$('#dashboard').load('/path/to/matches.php', function() {
+  // page fragment is now in the DOM
+  initMatchesFiltering();
+});
+That callback is the perfect spot to call initMatchesFiltering() so your filters/sort get bound to the freshly‑inserted HTML.
+
+Use delegated event handlers
+Instead of binding to #matchesContainer itself, bind to document (or another container that does exist at page‑load) and let events bubble up:
+
+js
+Copy
+Edit
+// replace your $container.off(...).on(...) calls with this once at page‑load:
+$(document)
+  .on('input change', '#distanceSlider', filterMatches)
+  .on('change', '#activeCheckbox, #hiddenCheckbox', filterMatches)
+  .on('change', '#sortSelect', sortMatches);
+Delegated handlers will catch events for elements inserted later by AJAX, so you won’t need to re‑call anything.
+
+Either approach will get your filters working on the dynamically‑loaded matches fragment. Let me know which you try (or if you need more examples)!
+
+
+
+
+
+
+You said:
+Now do these corrections take place with the matches.php or with the dashboard.php?
+
+
+ChatGPT said:
+Those fixes actually belong in your dashboard code—the page that’s doing the AJAX load—not in matches.php itself. Here’s why:
+
+matches.php just spits out the HTML fragment. It doesn’t know (and can’t know) when or how it’s being inserted.
+
+Your dashboard is the one calling $('#some‑container').load('/matches.php', …) (or similar), so it’s the dashboard’s JavaScript that needs to either:
+
+Invoke initMatchesFiltering() in the .load() callback (or your equivalent AJAX success handler) immediately after you inject the fragment.
+
+Or set up delegated handlers on a container that exists at page‑load (e.g. $(document).on( … '#distanceSlider', filterMatches)), which lives in your dashboard’s global script.
+
+So in short:
+
+If you want to stick with calling initMatchesFiltering(), add that call to dashboard.php (or its JS file) inside the AJAX callback.
+
+If you’d rather drop the need for a callback, move your .on('input change', …) bindings into a script that’s loaded by dashboard.php so they’ll catch events on the newly injected elements.
+
+Let me know which strategy you’d like, and I can show you the exact snippet to drop into your dashboard!

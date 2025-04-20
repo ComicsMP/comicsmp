@@ -95,22 +95,31 @@ if (!empty($otherUserIds)) {
     $stmtU->close();
 }
 
-// For persistence, fetch the hidden matches (assuming they are stored in a hidden_matches table)
-$hiddenMatches = [];
-$sqlHidden = "SELECT match_user_id FROM hidden_matches WHERE user_id = ?";
-$stmtHidden = $conn->prepare($sqlHidden);
-$stmtHidden->bind_param("i", $userId);
-$stmtHidden->execute();
-$resHidden = $stmtHidden->get_result();
-while($row = $resHidden->fetch_assoc()){
-    $hiddenMatches[] = $row['match_user_id'];
+// 1) load both hide/deleted flags
+// 1) load both hide/deleted flags
+$hiddenMatches  = [];
+$deletedMatches = [];
+$sqlH = "SELECT match_user_id, is_deleted FROM hidden_matches WHERE user_id = ?";
+$stmtH = $conn->prepare($sqlH);
+$stmtH->bind_param("i", $userId);
+$stmtH->execute();
+$resH = $stmtH->get_result();
+while ($r = $resH->fetch_assoc()) {
+    if ($r['is_deleted']) {
+        $deletedMatches[] = (int)$r['match_user_id'];
+    } else {
+        $hiddenMatches[]  = (int)$r['match_user_id'];
+    }
 }
-$stmtHidden->close();
+$stmtH->close();
 
-// Group matches by the "other" user.
+// 2) group matches by the "other" user, skipping any permanently deleted
 $groupedMatches = [];
 foreach ($matches as $m) {
     $otherUserId = ($m['buyer_id'] == $userId) ? $m['seller_id'] : $m['buyer_id'];
+    if (in_array($otherUserId, $deletedMatches, true)) {
+        continue;
+    }
     $groupedMatches[$otherUserId][] = $m;
 }
 
@@ -859,6 +868,7 @@ unset($matchArray);
             <input type="checkbox" id="filterHiddenCheckbox" style="transform:scale(1.2); margin-right:5px;">
             <label for="filterHiddenCheckbox" style="font-size:16px;">Hidden</label>
           </div>
+         
         </div>
       </div>
       <button id="applyFilterPopup" style="background:#28A745; color:#fff; border:none; border-radius:4px; padding:10px; width:100%; font-size:18px; cursor:pointer;">Apply</button>
