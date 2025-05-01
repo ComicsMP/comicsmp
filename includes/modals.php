@@ -276,6 +276,7 @@
 
 <!-- JavaScript for UPC Submission in Cover Popup Modal and UPC Formatting -->
 <script>
+
 $(document).ready(function(){
   // When the Cover Popup Modal is shown, check if the UPC is missing or "N/A"
   $('#coverPopupModal').on('shown.bs.modal', function () {

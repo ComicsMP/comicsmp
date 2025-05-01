@@ -1,67 +1,54 @@
 <?php
 session_start();
+header('Content-Type: application/json');
 require_once 'db_connection.php';
 
+// ✅ TEMP DEBUG: Log full POST data
+file_put_contents("debug_delete.log", print_r($_POST, true), FILE_APPEND);
+
 if (!isset($_SESSION['user_id'])) {
-    header("Location: messages.php");
+    echo json_encode(['status' => 'error', 'message' => 'Not logged in']);
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
-$conversation_id = $_POST['conversation_id'] ?? 0;
+$userId = $_SESSION['user_id'];
+$conversationId = $_POST['conversation_id'] ?? null;
 
-if (!$conversation_id) {
-    header("Location: messages.php");
+if (!$conversationId) {
+    echo json_encode(['status' => 'error', 'message' => 'Missing conversation ID']);
     exit;
 }
 
-// Retrieve the current deleted_for_user list
-$sqlFetch = "SELECT deleted_for_user FROM private_messages WHERE conversation_id = ? LIMIT 1";
-$stmtFetch = $conn->prepare($sqlFetch);
-$stmtFetch->bind_param("i", $conversation_id);
-$stmtFetch->execute();
-$resultFetch = $stmtFetch->get_result();
-$row = $resultFetch->fetch_assoc();
-$stmtFetch->close();
+// ✅ Verify user is part of conversation
+$stmt = $conn->prepare("SELECT id FROM conversations WHERE id = ? AND (user1_id = ? OR user2_id = ?)");
+$stmt->bind_param("iii", $conversationId, $userId, $userId);
+$stmt->execute();
+$result = $stmt->get_result();
 
-$deletedUsers = [];
-if (!empty($row['deleted_for_user'])) {
-    $deletedUsers = explode(',', $row['deleted_for_user']);
+if ($result->num_rows === 0) {
+    echo json_encode(['status' => 'error', 'message' => 'Conversation not found']);
+    exit;
 }
+$stmt->close();
 
-// If the user hasn't already deleted the conversation, add them to the list
-if (!in_array($user_id, $deletedUsers)) {
-    $deletedUsers[] = $user_id;
+// ✅ Soft delete: Add user ID to deleted_for_user column (CSV logic)
+$stmt = $conn->prepare("
+    UPDATE private_messages 
+    SET deleted_for_user = 
+        CASE 
+            WHEN deleted_for_user IS NULL OR deleted_for_user = '' 
+                THEN ?
+            WHEN NOT FIND_IN_SET(?, deleted_for_user) 
+                THEN CONCAT(deleted_for_user, ',', ?)
+            ELSE deleted_for_user
+        END
+    WHERE conversation_id = ?
+");
+$stmt->bind_param("sssi", $userId, $userId, $userId, $conversationId);
+$stmt->execute();
+
+if ($stmt->affected_rows > 0) {
+    echo json_encode(['status' => 'success']);
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Nothing changed.']);
 }
-
-// Convert the array back to a string
-$deletedUsersString = implode(',', $deletedUsers);
-
-// Update only for the current user
-$sqlUpdate = "UPDATE private_messages SET deleted_for_user = ? WHERE conversation_id = ?";
-$stmtUpdate = $conn->prepare($sqlUpdate);
-$stmtUpdate->bind_param("si", $deletedUsersString, $conversation_id);
-$stmtUpdate->execute();
-$stmtUpdate->close();
-
-// Check if BOTH users deleted the conversation
-$sqlCheck = "SELECT COUNT(*) AS remaining FROM private_messages WHERE conversation_id = ? AND (deleted_for_user IS NULL OR NOT FIND_IN_SET(sender_id, deleted_for_user) OR NOT FIND_IN_SET(recipient_id, deleted_for_user))";
-$stmtCheck = $conn->prepare($sqlCheck);
-$stmtCheck->bind_param("i", $conversation_id);
-$stmtCheck->execute();
-$resultCheck = $stmtCheck->get_result();
-$rowCheck = $resultCheck->fetch_assoc();
-$stmtCheck->close();
-
-// If no users remain in the conversation, delete it entirely
-if ($rowCheck['remaining'] == 0) {
-    $sqlDelete = "DELETE FROM private_messages WHERE conversation_id = ?";
-    $stmtDelete = $conn->prepare($sqlDelete);
-    $stmtDelete->bind_param("i", $conversation_id);
-    $stmtDelete->execute();
-    $stmtDelete->close();
-}
-
-$conn->close();
-header("Location: messages.php?deleted=success");
-exit;

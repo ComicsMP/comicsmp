@@ -111,7 +111,7 @@ while ($row = $result->fetch_assoc()) {
     data-issue-number="' . htmlspecialchars($issue) . '" 
     data-tab="' . $tab . '" 
     data-variant="' . $variant . '"
-    data-issue_url="' . $issue_url . '"
+    data-issue-url="' . $issue_url . '"
     data-date="' . $comic_date . '"
     data-condition="' . $condition . '"
     data-graded="' . $gradedText . '"
@@ -127,6 +127,8 @@ while ($row = $result->fetch_assoc()) {
     data-years="' . htmlspecialchars($years) . '" 
     data-issue-number="' . htmlspecialchars($issue) . '" 
     title="Edit">E</button>';
+
+
     
     $output .= '<button class="remove-sale" 
     style="position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 18px; text-align: center;" 

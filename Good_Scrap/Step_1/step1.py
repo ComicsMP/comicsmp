@@ -309,7 +309,8 @@ def scrape_detail_with_tabs(driver, url):
         logging.error(f"Timeout waiting for key elements for URL: {url}")
         return results
 
-    tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
+    tabs = driver.find_elements(By.CSS_SELECTOR, "div.dx-buttongroup-wrapper > div.dx-widget > div.dx-button-content > div.h--basic")
+
     if not tabs:
         data = scrape_single_url(driver, url)
         if data:
@@ -319,11 +320,13 @@ def scrape_detail_with_tabs(driver, url):
 
     logging.info("Found %s tabs on detail page: %s", len(tabs), url)
     for idx in range(len(tabs)):
-        current_tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
+        current_tabs = driver.find_elements(By.CSS_SELECTOR, "div.dx-buttongroup-wrapper > div.dx-widget > div.dx-button-content > div.h--basic")
+
         if idx >= len(current_tabs):
             break
         tab_button = current_tabs[idx]
-        tab_label = tab_button.text.strip() or f"Tab#{idx+1}"
+        tab_label = tab_elem.get_attribute("innerText").strip() or f"Tab#{idx+1}"
+
         aria_pressed = tab_button.get_attribute("aria-pressed")
         class_attr = tab_button.get_attribute("class")
         is_selected = (aria_pressed == "true") or ("dx-state-selected" in class_attr)
@@ -345,7 +348,8 @@ def scrape_detail_with_tabs(driver, url):
             results.append(data)
     return results
 
-def scrape_one_tab(driver, tab_button):
+def scrape_one_tab(driver, tab_button, tab_label):
+
     """
     For a single main-page tab, click it (if not selected), paginate,
     and return grid data and a list of issue URLs.
@@ -354,6 +358,7 @@ def scrape_one_tab(driver, tab_button):
     aria_pressed = tab_button.get_attribute("aria-pressed")
     class_attr = tab_button.get_attribute("class")
     is_selected = (aria_pressed == "true") or ("dx-state-selected" in class_attr)
+
     if not is_selected:
         try:
             logging.info(f"Clicking main-page tab: '{tab_label}'")
@@ -364,13 +369,16 @@ def scrape_one_tab(driver, tab_button):
             return {}, []
     else:
         logging.info(f"Main-page tab '{tab_label}' is already selected.")
+
     aggregated_grid_data = {}
     aggregated_issue_urls = []
     unique_urls = set()
     page_counter = 1
+
     while True:
         logging.info(f"  [Tab '{tab_label}'] Scraping page {page_counter}...")
         lazy_scroll(driver)
+
         try:
             WebDriverWait(driver, 15).until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a.grid_issue"))
@@ -378,23 +386,26 @@ def scrape_one_tab(driver, tab_button):
         except TimeoutException:
             logging.error(f"Timeout waiting for grid issues on page {page_counter}, tab '{tab_label}'.")
             break
+
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         grid_issues = soup.find_all("a", class_="grid_issue")
+
         if not grid_issues:
             logging.info(f"  [Tab '{tab_label}'] No grid issues found. Stopping pagination.")
             break
+
         new_count = 0
         for issue in grid_issues:
             href = issue.get("href")
             if not href:
                 continue
+
             parent_td = issue.find_parent("td")
             if not parent_td:
                 continue
+
             variant_elem = parent_td.find("span", class_="d-none d-sm-inline f-11")
             variant_raw = variant_elem.get_text(strip=True) if variant_elem else "N/A"
-            
-            # Replaced fix_repeated_text(...) with fix_glued_variant(...)
             variant = fix_glued_variant(variant_raw)
 
             edition_elem = parent_td.find("span", class_="d-block mt-1 text-black f-10 fw-bold")
@@ -408,82 +419,175 @@ def scrape_one_tab(driver, tab_button):
                 if span_years:
                     years_raw = span_years.get_text(strip=True)
                     years = fix_repeated_text(years_raw)
+
             rel_href = href
-            if not href.startswith("http"):
-                href_full = "https://www.comicspriceguide.com" + href
-            else:
-                href_full = href
+            href_full = "https://www.comicspriceguide.com" + href if not href.startswith("http") else href
+
             aggregated_grid_data[rel_href] = {
                 "Years": years,
                 "Variant": variant,
                 "Edition": edition,
                 "MainTab": tab_label,
             }
+
             if href_full not in unique_urls:
                 unique_urls.add(href_full)
                 aggregated_issue_urls.append(href_full)
                 new_count += 1
                 logging.info(f"  Saving from Tab '{tab_label}': {href_full} (Variant='{variant}', Edition='{edition}', Years='{years}')")
+
         logging.info(f"  [Tab '{tab_label}'] Page {page_counter}: Found {new_count} new issues (Total unique so far: {len(unique_urls)}).")
+
         if new_count == 0:
             logging.info(f"  [Tab '{tab_label}'] No new issues found on page {page_counter}. Stopping pagination.")
             break
+
         try:
             next_button = driver.find_element(By.CSS_SELECTOR, "div.dx-navigate-button.dx-next-button")
             if "dx-state-disabled" in next_button.get_attribute("class"):
                 logging.info(f"  [Tab '{tab_label}'] Next page button disabled. Done with this tab.")
                 break
+
             driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
             time.sleep(1)
-            next_button.click()
+
+            try:
+                next_button.click()
+            except ElementClickInterceptedException:
+                logging.warning(f"  [Tab '{tab_label}'] Click intercepted, retrying with JS click.")
+                driver.execute_script("arguments[0].click();", next_button)
+
             logging.info(f"  [Tab '{tab_label}'] Clicked next page button.")
             time.sleep(random.uniform(2, 4))
             page_counter += 1
+
         except Exception as e:
             logging.error(f"  [Tab '{tab_label}'] Error clicking next page button: {e}")
             break
+
     return aggregated_grid_data, aggregated_issue_urls
 
+
 def scrape_all_grid_pages(driver):
-    """
-    1) Load the /new-scans page.
-    2) Click 'Show Variants' if available.
-    3) Find all top-level tabs.
-    4) For each tab, gather grid data and issue URLs.
-    5) Return a tuple of (aggregated grid data, list of unique issue URLs).
-    """
     grid_url = "https://www.comicspriceguide.com/new-scans"
     logging.info(f"Loading main page: {grid_url}")
     driver.get(grid_url)
+
+    # Handle cookie consent if shown
     try:
-        variant_checkbox = WebDriverWait(driver, 10).until(
+        consent = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable(
+                (By.XPATH, "//button[contains(text(), 'Consent') or contains(text(), 'Agree')]")
+            )
+        )
+        consent.click()
+        logging.info("Clicked cookie consent button.")
+        time.sleep(2)
+    except TimeoutException:
+        logging.info("No cookie consent popup found.")
+
+    # Click "Show Variants" if present
+    try:
+        variants = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'Show Variants')]"))
         )
-        variant_checkbox.click()
-        logging.info("Clicked on 'Show Variants' checkbox.")
+        driver.execute_script("arguments[0].click();", variants)
+        logging.info("Clicked 'Show Variants'.")
+        time.sleep(2)
     except TimeoutException:
-        logging.warning("Timeout or not found: 'Show Variants' checkbox (might already be checked).")
-    time.sleep(2)
-    tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
-    if not tabs:
-        logging.warning("No tabs found on the main page. Possibly everything is under a single default tab.")
-        return {}, []
-    logging.info(f"Found {len(tabs)} tabs on main page: {grid_url}")
-    all_aggregated_grid_data = {}
-    all_aggregated_urls = []
-    for i in range(len(tabs)):
-        current_tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
-        if i >= len(current_tabs):
-            break
-        tab_elem = current_tabs[i]
-        tab_label = tab_elem.text.strip() or f"Tab#{i+1}"
-        logging.info(f"\n==> Processing main-page tab {i+1}/{len(current_tabs)}: '{tab_label}' <==")
-        tab_grid_data, tab_urls = scrape_one_tab(driver, tab_elem)
-        all_aggregated_grid_data.update(tab_grid_data)
-        all_aggregated_urls.extend(tab_urls)
-    unique_full_urls = list(dict.fromkeys(all_aggregated_urls))
-    logging.info(f"Aggregated total: {len(unique_full_urls)} unique issue URLs across all tabs.")
-    return all_aggregated_grid_data, all_aggregated_urls
+        logging.info("'Show Variants' not found or already enabled.")
+
+    # Find how many top-level tabs there are
+    tab_buttons = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
+    num_tabs = len(tab_buttons)
+    logging.info(f"Found {num_tabs} tabs on main page.")
+
+    all_grid_data = {}
+    all_issue_urls = []
+
+    # Loop through each tab by index, re-finding elements each time to avoid stale references
+    for i in range(num_tabs):
+        tab_buttons = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
+        tab = tab_buttons[i]
+        label = tab.text.strip() or f"Tab#{i+1}"
+        logging.info(f"\n==> Processing tab {i+1}/{num_tabs}: '{label}' <==")
+
+        # Click the tab and wait for grid issues to appear
+        click_tab_button(driver, tab)
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a.grid_issue"))
+            )
+        except TimeoutException:
+            logging.warning(f"[Tab '{label}'] no issues found, skipping.")
+            continue
+
+        # Paginate within this tab
+        seen = set()
+        page = 1
+        while True:
+            logging.info(f"[Tab '{label}'] Scraping page {page}...")
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            issues = soup.find_all("a", class_="grid_issue")
+            if not issues:
+                logging.info(f"[Tab '{label}'] no issues on page {page}, stopping.")
+                break
+
+            new_count = 0
+            for issue in issues:
+                href = issue.get("href")
+                if not href:
+                    continue
+                full_url = href if href.startswith("http") else "https://www.comicspriceguide.com" + href
+                if full_url in seen:
+                    continue
+                seen.add(full_url)
+                all_issue_urls.append(full_url)
+                new_count += 1
+
+                # Pull variant/edition/years from the surrounding <td>
+                parent_td = issue.find_parent("td")
+                years = edition = variant = "N/A"
+                if parent_td:
+                    info = parent_td.select_one("div.grid_issue_info span.d-none.d-sm-inline")
+                    years = fix_repeated_text(info.get_text(strip=True)) if info else "N/A"
+                    variant = fix_glued_variant(
+                        parent_td.select_one("span.d-none.d-sm-inline.f-11").get_text(strip=True)
+                    ) if parent_td.select_one("span.d-none.d-sm-inline.f-11") else "N/A"
+                    edition = fix_repeated_text(
+                        parent_td.select_one("span.f-10").get_text(strip=True)
+                    ) if parent_td.select_one("span.f-10") else "N/A"
+
+                rel_path = urlparse(full_url).path
+                all_grid_data[rel_path] = {
+                    "MainTab": label,
+                    "Years": years,
+                    "Variant": variant,
+                    "Edition": edition,
+                }
+
+            logging.info(f"[Tab '{label}'] Page {page}: found {new_count} new issues.")
+            # If nothing new, we're done
+            if new_count == 0:
+                break
+
+            # Try to click the "next" button
+            try:
+                next_btn = driver.find_element(By.CSS_SELECTOR, "div.dx-navigate-button.dx-next-button")
+                if "dx-state-disabled" in next_btn.get_attribute("class"):
+                    logging.info(f"[Tab '{label}'] next button disabled—done with pagination.")
+                    break
+                click_tab_button(driver, next_btn)
+                page += 1
+            except Exception as e:
+                logging.error(f"[Tab '{label}'] error clicking next page: {e}")
+                break
+
+    # Dedupe URLs
+    unique_urls = list(dict.fromkeys(all_issue_urls))
+    logging.info(f"Aggregated total: {len(unique_urls)} unique issue URLs across all tabs.")
+    return all_grid_data, unique_urls
+
 
 def load_scraped_urls(file_path="scraped_urls.txt"):
     try:

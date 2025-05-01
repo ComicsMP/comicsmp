@@ -1,720 +1,369 @@
-import time
-import random
-import pandas as pd
-import logging
+# ─────────────────────────── ComicPriceGuide Scraper v2.1 ───────────────────────────
+# • fixes “Years” (now from <span id="spYears"> on the series page)
+# • fixes “Tab” column (uses grid-tab label)
+# • writes incremental progress to  live_scraped_comics.xlsx  every 20 issues
+# ─────────────────────────────────────────────────────────────────────────────────────
+import time, random, os, shutil, logging, concurrent.futures
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
+
+import pandas as pd
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service  # For Selenium 4
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
-    TimeoutException,
-    NoSuchElementException,
-    StaleElementReferenceException,
-    ElementClickInterceptedException,
+    TimeoutException, StaleElementReferenceException,
+    ElementClickInterceptedException
 )
-from bs4 import BeautifulSoup
-from webdriver_manager.chrome import ChromeDriverManager  # For auto driver management
-import concurrent.futures
-from datetime import datetime, timedelta
-import os  # ADDED for folder manipulation
-import shutil  # ADDED for moving the final file
+from webdriver_manager.chrome import ChromeDriverManager
 
-# Set up logging to both file and console.
+
+# ─────────────────────────────── LOGGING ───────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s %(levelname)s: %(message)s',
+    format="%(asctime)s %(levelname)s: %(message)s",
     handlers=[
-        logging.FileHandler("scraped_comics_v2.log", encoding="utf-8", errors="replace"),  # Changed to v2
+        logging.FileHandler("scraped_comics_v2.log", encoding="utf-8", errors="replace"),
         logging.StreamHandler()
     ]
 )
 
-# Global option: Set to 1 to enable skipping URLs that were scraped within the past 7 days.
+# ───────────────────────── GLOBAL CONSTANTS ────────────────────────────
 SKIP_ALREADY_SCRAPED = 1
+LIVE_UPDATE_EVERY     = 20          # write live_scraped_comics.xlsx after this many new rows
+KNOWN_COUNTRIES = {"USA","United Kingdom","Canada","Australia","Germany","France","Mexico",
+                   "India","Japan","Italy","Spain","Argentina","Belgium","Brazil","Bulgaria",
+                   "Chile","China","Colombia","Congo (Zaire)","Croatia","Czech Republic",
+                   "Denmark","Egypt","Finland","Greece","Hong Kong","Hungary","Iceland",
+                   "Ireland","Israel","Kenya","Latvia","Luxembourg","Netherlands",
+                   "New Zealand","Norway","Philippines","Poland","Portugal","Puerto Rico",
+                   "Romania","Russia","Singapore","Slovenia","South Africa","South Korea",
+                   "Sweden","Switzerland","Taiwan","Thailand","Lebanon","Bermuda","Austria",
+                   "British Virgin Islands","Iraq","Malaysia","Serbia and Montenegro (Yugoslavia)",
+                   "Ukraine","United Arab Emirates"}
 
-# Predefined list of known countries.
-KNOWN_COUNTRIES = {
-    "USA",
-    "United Kingdom",
-    "Canada",
-    "Australia",
-    "Germany",
-    "France",
-    "Mexico",
-    "India",
-    "Japan",
-    "Italy",
-    "Spain",
-    "Argentina",
-    "Belgium",
-    "Brazil",
-    "Bulgaria",
-    "Chile",
-    "China",
-    "Colombia",
-    "Congo (Zaire)",
-    "Croatia",
-    "Czech Republic",
-    "Denmark",
-    "Egypt",
-    "Finland",
-    "Greece",
-    "Hong Kong",
-    "Hungary",
-    "Iceland",
-    "Ireland",
-    "Israel",
-    "Kenya",
-    "Latvia",
-    "Luxembourg",
-    "Netherlands",
-    "New Zealand",
-    "Norway",
-    "Philippines",
-    "Poland",
-    "Portugal",
-    "Puerto Rico",
-    "Romania",
-    "Russia",
-    "Singapore",
-    "Slovenia",
-    "South Africa",
-    "South Korea",
-    "Sweden",
-    "Switzerland",
-    "Taiwan",
-    "Thailand",
-    "Lebanon",
-    "Bermuda",
-    "Austria",
-    "British Virgin Islands",
-    "Iraq",
-    "Malaysia",
-    "Serbia and Montenegro (Yugoslavia)",
-    "Ukraine",
-    "United Arab Emirates",
-}
-
-def setup_driver():
-    """Set up Selenium WebDriver with Chrome options."""
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # Run in headless mode.
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--enable-unsafe-swiftshader")
-    options.add_argument("--ignore-certificate-errors")
-    options.add_argument(
+# ───────────────────────────── UTILITIES ───────────────────────────────
+def setup_driver() -> webdriver.Chrome:
+    opts = webdriver.ChromeOptions()
+    opts.add_argument("--headless"); opts.add_argument("--disable-gpu")
+    opts.add_argument("--no-sandbox"); opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--log-level=3"); opts.add_experimental_option(
+        "excludeSwitches", ["enable-logging"])
+    opts.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.7049.42 Safari/537.36"
     )
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--log-level=3")
-    options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    # Updated to specify the exact ChromeDriver version for Chrome 133.0.6943.142
     service = Service(ChromeDriverManager(driver_version="135.0.7049.42").install())
-    driver = webdriver.Chrome(service=service, options=options)
-    return driver
+    return webdriver.Chrome(service=service, options=opts)
 
-def extract_country(text):
-    """Extract the country from text based on a predefined list."""
-    for country in KNOWN_COUNTRIES:
-        if country in text:
-            return country
-    return "N/A"
 
-def extract_volume(text):
-    """Extract the volume number from text if present."""
-    if "Volume" in text:
-        parts = text.split("Volume")
-        if len(parts) > 1:
-            volume_part = parts[1].split()[0]
-            return volume_part.strip()
-    return "N/A"
-
-def get_relative_url(full_url):
-    """Return the path portion of a full URL."""
-    parsed = urlparse(full_url)
-    return parsed.path
-
-def fix_repeated_text(s):
-    """
-    If the string is exactly doubled (e.g. '19551955'), return just half ('1955').
-    Otherwise return the original string.
-    """
-    s = s.strip()
-    if not s:
-        return s
-    length = len(s)
-    if length % 2 == 0:
-        half = length // 2
-        if s[:half] == s[half:]:
-            return s[:half]
-    return s
-
-# New function to catch glued duplicates:
-def fix_glued_variant(s):
-    """
-    If the first 20 characters reappear beyond index 20,
-    trim the string at the start of that repeated chunk.
-    """
-    s = s.strip()
-    if len(s) < 40:
-        return s
-    chunk = s[:20]
-    repeat_pos = s.find(chunk, 20)
-    if repeat_pos != -1:
-        return s[:repeat_pos]
-    return s
-
-def click_tab_button(driver, tab_elem):
-    """Safely scroll the tab element into view and click it."""
-    WebDriverWait(driver, 10).until(EC.visibility_of(tab_elem))
-    driver.execute_script("arguments[0].scrollIntoView(true);", tab_elem)
-    time.sleep(1)
-    driver.execute_script("window.scrollBy(0, -150);")
-    time.sleep(1)
+def click_tab_button(driver: webdriver.Chrome, elem):
+    """scroll → click; JS-fallback if intercepted; 2-sec settle time"""
+    WebDriverWait(driver, 10).until(EC.visibility_of(elem))
+    driver.execute_script("arguments[0].scrollIntoView(true);", elem)
+    driver.execute_script("window.scrollBy(0,-150);")
     try:
-        tab_elem.click()
-    except (ElementClickInterceptedException, StaleElementReferenceException) as e:
-        logging.warning(f"Normal click failed, trying JS click. Error: {e}")
-        driver.execute_script("arguments[0].click();", tab_elem)
+        elem.click()
+    except (ElementClickInterceptedException, StaleElementReferenceException):
+        driver.execute_script("arguments[0].click();", elem)
     time.sleep(2)
 
+
 def lazy_scroll(driver):
-    """Scrolls to the bottom of the page until no more content is loaded."""
     while True:
-        old_height = driver.execute_script("return document.body.scrollHeight")
+        old_h = driver.execute_script("return document.body.scrollHeight")
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == old_height:
+        if driver.execute_script("return document.body.scrollHeight") == old_h:
             break
 
-# --- Timestamp Functions using a dedicated file (scraped_urls.txt) ---
-def load_scraped_urls_with_timestamps(file_path="scraped_urls.txt"):
-    """
-    Load scraped URLs with timestamps from a dedicated file.
-    Each line should be in the format: URL|YYYY-MM-DD HH:MM:SS
-    Returns a dictionary mapping URL -> timestamp (datetime object).
-    """
-    scraped = {}
-    try:
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                if "|" in line:
-                    parts = line.split("|")
-                    if len(parts) == 2:
-                        url, ts_str = parts
-                        try:
-                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                        except Exception:
-                            ts = None
-                        scraped[url] = ts
-    except FileNotFoundError:
-        scraped = {}
-    return scraped
 
-def save_scraped_url_with_timestamp(url, file_path="scraped_urls.txt"):
-    """Append the URL and current timestamp to the dedicated scraped URLs file."""
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(file_path, "a", encoding="utf-8") as f:
-        f.write(f"{url}|{ts}\n")
+def fix_repeated_text(s: str) -> str:
+    s = s.strip()
+    if not s: return s
+    return s[:len(s)//2] if len(s)%2==0 and s[:len(s)//2]==s[len(s)//2:] else s
 
-# We'll define a helper that merges both old and new logs:
-def load_combined_scraped_logs():
-    combined = {}
-    # Read from old (scraped_urls.txt)
-    try:
-        old_log = load_scraped_urls_with_timestamps("scraped_urls.txt")
-        combined.update(old_log)
-    except Exception as e:
-        logging.warning("Could not read from scraped_urls.txt: " + str(e))
-    # Read from new (scraped_urls_v2.txt)
-    try:
-        new_log = load_scraped_urls_with_timestamps("scraped_urls_v2.txt")
-        combined.update(new_log)
-    except Exception as e:
-        logging.warning("Could not read from scraped_urls_v2.txt: " + str(e))
-    return combined
 
-# --- Scraping Functions for Detail Pages ---
+def fix_glued_variant(s: str) -> str:
+    s = s.strip()
+    if len(s) < 40: return s
+    first20, pos = s[:20], s.find(s[:20], 20)
+    return s[:pos] if pos != -1 else s
+
+
+def extract_country(t):   return next((c for c in KNOWN_COUNTRIES if c in t), "N/A")
+def extract_volume(t):
+    return t.split("Volume")[1].split()[0].strip() if "Volume" in t else "N/A"
+def rel(u): return urlparse(u).path
+
+
+# ───────────────────── SCRAPE: DETAIL-PAGE HELPERS ─────────────────────
+def _fill_series_years(driver, soup, result):
+    """visit breadcrumb 3 or 4 → pull <span id='spYears'>"""
+    for pos in (3, 4):
+        bc = soup.select_one(f"ol.breadcrumb li:nth-child({pos}) a")
+        if not bc or not bc.has_attr("href"): continue
+        url = bc["href"]; url = url if url.startswith("http") else "https://www.comicspriceguide.com"+url
+        try:
+            driver.get(url)
+            WebDriverWait(driver,10).until(
+                lambda d: d.execute_script("return document.readyState") == "complete")
+            yrs = BeautifulSoup(driver.page_source,"html.parser").select_one("span#spYears")
+            if yrs:
+                result["Years"] = yrs.get_text(strip=True)
+                logging.info(f"Series years found ({pos}): {result['Years']}")
+                return
+        except TimeoutException:
+            logging.warning(f"Timeout visiting series breadcrumb {pos}: {url}")
+    logging.info("Series years not found; leaving as N/A")
+
+
 def scrape_single_url(driver, url):
-    """
-    Scrape a single detail page and return a dictionary with detail fields:
-      - Comic_Title
-      - Issue_Number
-      - Publisher_Name
-      - Date (from detail page, from <span id="lblYears">)
-      - Country
-      - Volume
-      - Image_URL
-      - Issue_URL
-      - Years (from the series page, <span id="spYears">)
-      - Issues_Note
-      - (Variant and Edition will be added later)
-    
-    The "Date" field comes solely from the detail page's <span id="lblYears"> (e.g. "May 2025"),
-    and the "Years" field will be updated with the series page's <span id="spYears"> value.
-    """
     logging.info(f"Scraping URL: {url}")
     driver.get(url)
-    try:
-        WebDriverWait(driver, 30).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR, "div.h--title.pb-0")) > 0 or 
-                      len(d.find_elements(By.CSS_SELECTOR, "span#lblYears")) > 0
-        )
-    except TimeoutException:
-        logging.error(f"Timeout waiting for key elements for URL: {url}")
-        return None
-    try:
-        WebDriverWait(driver, 10).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-    except TimeoutException:
-        logging.warning(f"Document not fully ready for URL: {url}")
+    WebDriverWait(driver, 30).until(
+        lambda d: d.find_elements(By.CSS_SELECTOR, "div.h--title.pb-0") or
+                  d.find_elements(By.CSS_SELECTOR, "span#lblYears"))
+    WebDriverWait(driver,10).until(
+        lambda d: d.execute_script("return document.readyState") == "complete")
 
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    # Extract local "Date" from the detail page using <span id="lblYears">
-    date_element = soup.select_one("span#lblYears")
-    date = date_element.text.strip() if date_element else "N/A"
+    date_el   = soup.select_one("span#lblYears")
+    props_el  = soup.select_one("div.mt-0.mb-0.issue-prop.text-muted")
+    img_el    = soup.select_one("img.img-responsive.img-thumbnail")
+    title_el  = soup.select_one("div.h--title.pb-0")
+    pub_el    = soup.select_one("ol.breadcrumb li:nth-child(2)")
 
-    issue_props = soup.select_one("div.mt-0.mb-0.issue-prop.text-muted")
-    if issue_props:
-        country = extract_country(issue_props.text)
-        volume = extract_volume(issue_props.text)
+    if title_el:
+        t = title_el.text.strip(); parts = t.split("#",1)
+        title, issue_no = parts[0], parts[1] if len(parts)==2 else "N/A"
     else:
-        country, volume = "N/A", "N/A"
+        title = issue_no = "N/A"
 
-    image_element = soup.select_one("img.img-responsive.img-thumbnail")
-    if image_element and image_element.has_attr('src'):
-        image_url = "https://www.comicspriceguide.com" + image_element['src']
-    else:
-        image_url = "N/A"
-
-    title_element = soup.select_one("div.h--title.pb-0")
-    if title_element:
-        title_text = title_element.text.strip()
-        if "#" in title_text:
-            title, issue_number = title_text.split("#", 1)
-        else:
-            title, issue_number = title_text, "N/A"
-    else:
-        title, issue_number = "N/A", "N/A"
-
-    breadcrumb_publisher = soup.select_one("ol.breadcrumb li:nth-child(2)")
-    publisher = breadcrumb_publisher.text.strip() if breadcrumb_publisher else "N/A"
-
-    # Build initial result; note "Years" starts as "N/A"
     result = {
-        "Comic_Title": title.strip(),
-        "Issue_Number": issue_number.strip(),
-        "Publisher_Name": publisher,
-        "Date": date,  # Date comes solely from <span id="lblYears">
-        "Country": country,
-        "Volume": volume,
-        "Image_URL": image_url,
-        "Issue_URL": url,
-        "Years": "N/A",
-        "Issues_Note": "N/A"
+        "Comic_Title"   : title.strip(),
+        "Issue_Number"  : issue_no.strip(),
+        "Publisher_Name": pub_el.text.strip() if pub_el else "N/A",
+        "Date"          : date_el.text.strip() if date_el else "N/A",
+        "Country"       : extract_country(props_el.text) if props_el else "N/A",
+        "Volume"        : extract_volume(props_el.text) if props_el else "N/A",
+        "Image_URL"     : ("https://www.comicspriceguide.com"+img_el["src"]) if img_el else "N/A",
+        "Issue_URL"     : url,
+        "Years"         : "N/A",
+        "Issues_Note"   : "N/A"
     }
-    logging.info(f"Scraped detail data: {result}")
 
-    # Attempt to load the series page from breadcrumb li:nth-child(3) -> spYears
-    breadcrumb_series = soup.select_one("ol.breadcrumb li:nth-child(3) a")
-    if breadcrumb_series and breadcrumb_series.has_attr('href'):
-        series_url = breadcrumb_series['href']
-        if not series_url.startswith("http"):
-            series_url = "https://www.comicspriceguide.com" + series_url
-        try:
-            driver.get(series_url)
-            WebDriverWait(driver, 10).until(
-                lambda d: d.execute_script("return document.readyState") == "complete"
-            )
-            series_soup = BeautifulSoup(driver.page_source, 'html.parser')
-            sp_years_elem = series_soup.select_one("span#spYears")
-            if sp_years_elem:
-                result["Years"] = sp_years_elem.get_text(strip=True)
-                logging.info(f"Overwrote 'Years' with series info (breadcrumb 3): {result['Years']}")
-            else:
-                logging.info("No <span id='spYears'> found on the series page (breadcrumb 3).")
-        except TimeoutException:
-            logging.warning(f"Timeout loading series page at {series_url} (breadcrumb 3)")
-        except Exception as e:
-            logging.error(f"Error scraping series page {series_url} (breadcrumb 3): {e}")
-    else:
-        logging.info("No breadcrumb child #3 link found, leaving 'Years' as N/A.")
-
-    # If still no Years found, try the 4th breadcrumb as fallback.
-    if result["Years"] == "N/A":
-        breadcrumb_series4 = soup.select_one("ol.breadcrumb li:nth-child(4) a")
-        if breadcrumb_series4 and breadcrumb_series4.has_attr('href'):
-            series_url4 = breadcrumb_series4['href']
-            if not series_url4.startswith("http"):
-                series_url4 = "https://www.comicspriceguide.com" + series_url4
-            try:
-                driver.get(series_url4)
-                WebDriverWait(driver, 10).until(
-                    lambda d: d.execute_script("return document.readyState") == "complete"
-                )
-                series_soup4 = BeautifulSoup(driver.page_source, 'html.parser')
-                sp_years_elem4 = series_soup4.select_one("span#spYears")
-                if sp_years_elem4:
-                    result["Years"] = sp_years_elem4.get_text(strip=True)
-                    logging.info(f"Overwrote 'Years' with series info (breadcrumb 4): {result['Years']}")
-                else:
-                    logging.info("No <span id='spYears'> found on the series page (breadcrumb 4).")
-            except TimeoutException:
-                logging.warning(f"Timeout loading series page at {series_url4} (breadcrumb 4)")
-            except Exception as e:
-                logging.error(f"Error scraping series page {series_url4} (breadcrumb 4): {e}")
-        else:
-            logging.info("No breadcrumb child #4 link found, leaving 'Years' as N/A.")
-
+    _fill_series_years(driver, soup, result)
     return result
 
+
 def scrape_detail_with_tabs(driver, url):
-    """
-    Loads a detail page and checks for a tabs container.
-    If tabs exist, iterate over them and scrape detail data; if not, scrape once and tag with "Default".
-    Returns a list of result dictionaries.
-    """
     results = []
     driver.get(url)
-    try:
-        WebDriverWait(driver, 30).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR, "div.h--title.pb-0")) > 0 or 
-                      len(d.find_elements(By.CSS_SELECTOR, "span#lblYears")) > 0
-        )
-    except TimeoutException:
-        logging.error(f"Timeout waiting for key elements for URL: {url}")
-        return results
+    WebDriverWait(driver, 30).until(
+        lambda d: d.find_elements(By.CSS_SELECTOR, "div.h--title.pb-0") or
+                  d.find_elements(By.CSS_SELECTOR, "span#lblYears"))
 
     tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
     if not tabs:
-        data = scrape_single_url(driver, url)
-        if data:
-            data["Tab"] = "Default"
-            results.append(data)
-        return results
+        d = scrape_single_url(driver, url); d and results.append({**d,"Tab":"Default"}); return results
 
-    logging.info("Found %s tabs on detail page: %s", len(tabs), url)
-    for idx in range(len(tabs)):
-        current_tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
-        if idx >= len(current_tabs):
-            break
-        tab_button = current_tabs[idx]
-        tab_label = tab_button.text.strip() or f"Tab#{idx+1}"
-        aria_pressed = tab_button.get_attribute("aria-pressed")
-        class_attr = tab_button.get_attribute("class")
-        is_selected = (aria_pressed == "true") or ("dx-state-selected" in class_attr)
-        logging.info("Processing detail-page Tab %s/%s: '%s' (selected=%s)",
-                     idx+1, len(current_tabs), tab_label, is_selected)
-        if not is_selected:
-            try:
-                click_tab_button(driver, tab_button)
-                logging.info("Clicked on detail-page tab '%s'.", tab_label)
-                time.sleep(3)
-            except Exception as e:
-                logging.error("Error clicking detail-page tab '%s': %s", tab_label, str(e))
-                continue
-        else:
-            logging.info("Detail-page tab '%s' is already selected.", tab_label)
-        data = scrape_single_url(driver, url)
-        if data:
-            data["Tab"] = tab_label
-            results.append(data)
+    for i in range(len(tabs)):
+        tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
+        btn  = tabs[i]; label = btn.text.strip() or f"Tab#{i+1}"
+        if btn.get_attribute("aria-pressed") != "true":
+            click_tab_button(driver, btn)
+        d = scrape_single_url(driver, url); d and results.append({**d,"Tab":label})
     return results
 
-def scrape_one_tab(driver, tab_button):
-    """
-    For a single main-page tab, click it (if not selected), paginate,
-    and return grid data and a list of issue URLs.
-    """
-    tab_label = tab_button.text.strip() or "UnknownTab"
-    aria_pressed = tab_button.get_attribute("aria-pressed")
-    class_attr = tab_button.get_attribute("class")
-    is_selected = (aria_pressed == "true") or ("dx-state-selected" in class_attr)
-    if not is_selected:
-        try:
-            logging.info(f"Clicking main-page tab: '{tab_label}'")
-            click_tab_button(driver, tab_button)
-            time.sleep(2)
-        except Exception as e:
-            logging.error(f"Error clicking main-page tab '{tab_label}': {e}")
-            return {}, []
-    else:
-        logging.info(f"Main-page tab '{tab_label}' is already selected.")
-    aggregated_grid_data = {}
-    aggregated_issue_urls = []
-    unique_urls = set()
-    page_counter = 1
+
+# ─────────────────── SCRAPE: GRID / TAB-LEVEL HELPERS ───────────────────
+def scrape_one_tab(driver, tab_elem, tab_label):
+    if tab_elem.get_attribute("aria-pressed") != "true":
+        click_tab_button(driver, tab_elem)
+
+    WebDriverWait(driver,10).until(
+        EC.presence_of_all_elements_located((By.CSS_SELECTOR,"a.grid_issue"))
+    )
+
+    grid_data, urls, seen = {}, [], set(); page = 1
     while True:
-        logging.info(f"  [Tab '{tab_label}'] Scraping page {page_counter}...")
+        logging.info(f"[Tab '{tab_label}'] Scraping page {page} …")
         lazy_scroll(driver)
-        try:
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a.grid_issue"))
-            )
-        except TimeoutException:
-            logging.error(f"Timeout waiting for grid issues on page {page_counter}, tab '{tab_label}'.")
-            break
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        grid_issues = soup.find_all("a", class_="grid_issue")
-        if not grid_issues:
-            logging.info(f"  [Tab '{tab_label}'] No grid issues found. Stopping pagination.")
-            break
-        new_count = 0
-        for issue in grid_issues:
-            href = issue.get("href")
-            if not href:
-                continue
-            parent_td = issue.find_parent("td")
-            if not parent_td:
-                continue
-            variant_elem = parent_td.find("span", class_="d-none d-sm-inline f-11")
-            variant_raw = variant_elem.get_text(strip=True) if variant_elem else "N/A"
+        soup  = BeautifulSoup(driver.page_source,"html.parser")
+        links = soup.find_all("a", class_="grid_issue"); new = 0
 
-            # Only change: calling fix_glued_variant instead of fix_repeated_text
-            variant = fix_glued_variant(variant_raw)
+        for a in links:
+            href = a.get("href"); full = href if href.startswith("http") else "https://www.comicspriceguide.com"+href
+            if full in seen: continue
+            seen.add(full); urls.append(full); new += 1
 
-            edition_elem = parent_td.find("span", class_="d-block mt-1 text-black f-10 fw-bold")
-            edition_raw = edition_elem.get_text(strip=True) if edition_elem else "N/A"
-            edition = fix_repeated_text(edition_raw)
-
-            info_div = parent_td.find("div", class_="grid_issue_info")
-            years = "N/A"
-            if info_div:
-                span_years = info_div.find("span", class_="d-none d-sm-inline")
-                if span_years:
-                    years_raw = span_years.get_text(strip=True)
-                    years = fix_repeated_text(years_raw)
-            rel_href = href
-            if not href.startswith("http"):
-                href_full = "https://www.comicspriceguide.com" + href
-            else:
-                href_full = href
-            aggregated_grid_data[rel_href] = {
-                "Years": years,
-                "Variant": variant,
-                "Edition": edition,
+            td       = a.find_parent("td")
+            years_el = td.select_one("div.grid_issue_info span.d-none.d-sm-inline")
+            var_el   = td.select_one("span.d-none.d-sm-inline.f-11")
+            edt_el   = td.select_one("span.f-10")
+            grid_data[rel(full)] = {
                 "MainTab": tab_label,
+                "Years"  : fix_repeated_text(years_el.get_text(strip=True)) if years_el else "N/A",
+                "Variant": fix_glued_variant(var_el.get_text(strip=True)) if var_el else "N/A",
+                "Edition": fix_repeated_text(edt_el.get_text(strip=True)) if edt_el else "N/A"
             }
-            if href_full not in unique_urls:
-                unique_urls.add(href_full)
-                aggregated_issue_urls.append(href_full)
-                new_count += 1
-                logging.info(f"  Saving from Tab '{tab_label}': {href_full} (Variant='{variant}', Edition='{edition}', Years='{years}')")
-        logging.info(f"  [Tab '{tab_label}'] Page {page_counter}: Found {new_count} new issues (Total unique so far: {len(unique_urls)}).")
-        if new_count == 0:
-            logging.info(f"  [Tab '{tab_label}'] No new issues found on page {page_counter}. Stopping pagination.")
-            break
-        try:
-            next_button = driver.find_element(By.CSS_SELECTOR, "div.dx-navigate-button.dx-next-button")
-            if "dx-state-disabled" in next_button.get_attribute("class"):
-                logging.info(f"  [Tab '{tab_label}'] Next page button disabled. Done with this tab.")
-                break
-            driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-            time.sleep(1)
-            next_button.click()
-            logging.info(f"  [Tab '{tab_label}'] Clicked next page button.")
-            time.sleep(random.uniform(2, 4))
-            page_counter += 1
-        except Exception as e:
-            logging.error(f"  [Tab '{tab_label}'] Error clicking next page button: {e}")
-            break
-    return aggregated_grid_data, aggregated_issue_urls
 
+        logging.info(f"[Tab '{tab_label}'] page {page}: {new} new issues.")
+        if new == 0: break
+
+        try:
+            nxt = driver.find_elements(By.CSS_SELECTOR,"div.dx-navigate-button.dx-next-button")
+            if not nxt or "dx-state-disabled" in nxt[0].get_attribute("class"):
+                break
+            click_tab_button(driver, nxt[0])
+            WebDriverWait(driver,10).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR,"a.grid_issue"))
+            )
+            page += 1
+        except Exception as e:
+            logging.error(f"[Tab '{tab_label}'] pagination error: {e}")
+            break
+    return grid_data, urls
+
+
+# ────────────────────── SCRAPE: TABS (TOP LEVEL) ────────────────────────
 def scrape_all_grid_pages(driver):
-    """
-    1) Load the /new-comics page.
-    2) Click 'Show Variants' if available.
-    3) Find all top-level tabs.
-    4) For each tab, gather grid data and issue URLs.
-    5) Return a tuple of (aggregated grid data, list of unique issue URLs).
-    """
     grid_url = "https://www.comicspriceguide.com/new-comics"
     logging.info(f"Loading main page: {grid_url}")
     driver.get(grid_url)
+
+    # cookie consent
     try:
-        variant_checkbox = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'Show Variants')]"))
+        consent = WebDriverWait(driver,5).until(
+            EC.element_to_be_clickable((By.XPATH,"//button[contains(text(),'Consent') or contains(text(),'Agree')]"))
         )
-        variant_checkbox.click()
-        logging.info("Clicked on 'Show Variants' checkbox.")
+        consent.click(); logging.info("Cookie consent clicked."); time.sleep(2)
     except TimeoutException:
-        logging.warning("Timeout or not found: 'Show Variants' checkbox (might already be checked).")
-    time.sleep(2)
-    tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
-    if not tabs:
-        logging.warning("No tabs found on the main page. Possibly everything is under a single default tab.")
-        return {}, []
-    logging.info(f"Found {len(tabs)} tabs on main page: {grid_url}")
-    all_aggregated_grid_data = {}
-    all_aggregated_urls = []
-    for i in range(len(tabs)):
-        current_tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
-        if i >= len(current_tabs):
-            break
-        tab_elem = current_tabs[i]
-        tab_label = tab_elem.text.strip() or f"Tab#{i+1}"
-        logging.info(f"\n==> Processing main-page tab {i+1}/{len(current_tabs)}: '{tab_label}' <==")
-        tab_grid_data, tab_urls = scrape_one_tab(driver, tab_elem)
-        all_aggregated_grid_data.update(tab_grid_data)
-        all_aggregated_urls.extend(tab_urls)
-    unique_full_urls = list(dict.fromkeys(all_aggregated_urls))
-    logging.info(f"Aggregated total: {len(unique_full_urls)} unique issue URLs across all tabs.")
-    return all_aggregated_grid_data, unique_full_urls
+        logging.info("No consent banner.")
 
-def load_scraped_urls(file_path="scraped_urls.txt"):
+    # show variants
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return {line.strip() for line in f if line.strip()}
-    except FileNotFoundError:
-        return set()
+        variants = WebDriverWait(driver,10).until(
+            EC.element_to_be_clickable((By.XPATH,"//span[contains(text(),'Show Variants')]"))
+        )
+        driver.execute_script("arguments[0].click();", variants)
+        logging.info("'Show Variants' checked."); time.sleep(2)
+    except TimeoutException:
+        logging.info("'Show Variants' control not found or already active.")
 
-def save_scraped_url(url, file_path="scraped_urls.txt"):
-    with open(file_path, "a", encoding="utf-8") as f:
-        f.write(url + "\n")
+    all_grid, all_urls = {}, []
+    num_tabs = len(driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']"))
+    logging.info(f"Beginning scrape across {num_tabs} tabs")
 
+    for i in range(num_tabs):
+        tabs = driver.find_elements(By.CSS_SELECTOR, "#dvComicTypes div[role='button']")
+        tab_elem = tabs[i]; label = tab_elem.text.strip() or f"Tab#{i+1}"
+        logging.info(f"\n==> Processing main-page tab {i+1}/{num_tabs}: '{label}' <==")
+        tab_grid, tab_urls = scrape_one_tab(driver, tab_elem, label)
+        all_grid.update(tab_grid); all_urls.extend(tab_urls)
+
+    unique_urls = list(dict.fromkeys(all_urls))
+    logging.info(f"Aggregated {len(unique_urls)} unique issue URLs across all tabs.")
+    return all_grid, unique_urls
+
+
+# ───────────────────── SCRAPE: DETAIL-PAGE WRAPPER ─────────────────────
 def process_detail_page(url, scraped_log, grid_data):
-    """
-    Process a single detail page:
-      - If the URL is in the scraped log with a timestamp within 7 days, skip it.
-      - Otherwise, scrape detail data (using tabs if available), merge with grid data,
-        log the URL with timestamp, and return a list of result dictionaries.
-    """
-    logging.info(f"Processing detail page: {url}")
-    if SKIP_ALREADY_SCRAPED and (url in scraped_log):
+    # skip if we scraped this URL in the last 7 days --------------------
+    if SKIP_ALREADY_SCRAPED and url in scraped_log:
         ts = scraped_log[url]
         if ts and (datetime.now() - ts) < timedelta(days=7):
-            logging.info("Skipping URL (recently scraped): %s", url)
-            return []  # Skip if scraped within 7 days
-    detail_driver = setup_driver()
+            logging.info(f"Skipping (recent) {url}")
+            return []
+
+    drv = setup_driver()
     try:
-        data_list = scrape_detail_with_tabs(detail_driver, url)
-        if not data_list:
-            logging.info(f"Retrying URL: {url}")
-            time.sleep(3)
-            data_list = scrape_detail_with_tabs(detail_driver, url)
-        results_local = []
-        if data_list:
-            for data in data_list:
-                rel_url = get_relative_url(url)
-                main_tab_label = grid_data.get(rel_url, {}).get("MainTab", "Default")
-                data["Tab"] = main_tab_label
+        data = scrape_detail_with_tabs(drv, url)          # ① scrape detail page (tabs aware)
 
-                # Removed fallback to grid's "Years" to ensure "Years" comes only from the series page (spYears)
-                data["Variant"] = grid_data.get(rel_url, {}).get("Variant", "N/A")
-                data["Edition"] = grid_data.get(rel_url, {}).get("Edition", "N/A")
+        for d in data:
+            rel_path = rel(url)
 
-                results_local.append(data)
-        # Now save to scraped_urls_v2.txt instead of the original
-        save_scraped_url_with_timestamp(url, file_path="scraped_urls_v2.txt")
-        time.sleep(random.uniform(2, 5))
-        return results_local
+            # ② merge everything from the grid EXCEPT the Years field
+            d.update({k: v for k, v in grid_data.get(rel_path, {}).items()
+                      if k != "Years"})
+
+            # ③ if the detail scrape never found a Years value, fall back to the grid’s
+            if d.get("Years") == "N/A":
+                d["Years"] = grid_data.get(rel_path, {}).get("Years", "N/A")
+
+            # ④ promote MainTab → Tab (for final XLSX column)
+            if "MainTab" in d:
+                d["Tab"] = d.pop("MainTab")
+
+        # log URL + timestamp so we can skip it next run ----------------
+        with open("scraped_urls_v2.txt", "a", encoding="utf-8") as f:
+            f.write(f"{url}|{datetime.now():%Y-%m-%d %H:%M:%S}\n")
+
+        return data
+
     except Exception as e:
-        logging.error("Error processing detail page %s: %s", url, e)
+        logging.error(f"Detail scrape error {url}: {e}")
         return []
-    finally:
-        detail_driver.quit()
 
+    finally:
+        drv.quit()
+
+
+# ──────────────────────────── MAIN WORKFLOW ────────────────────────────
 def main():
-    # EXACT original logic, except we switch to reading from combined logs & saving to v2
+    # load scrape logs
     scraped_log = {}
     if SKIP_ALREADY_SCRAPED:
-        try:
-            scraped_log = load_combined_scraped_logs()
-        except Exception as e:
-            logging.warning("Could not read from old/new scraped_urls files: " + str(e))
+        for fn in ("scraped_urls.txt","scraped_urls_v2.txt"):
+            try:
+                with open(fn,"r",encoding="utf-8") as f:
+                    for line in f:
+                        url,ts = (line.strip().split("|")+[None])[:2]
+                        scraped_log[url] = datetime.strptime(ts,"%Y-%m-%d %H:%M:%S") if ts else None
+            except FileNotFoundError:
+                pass
 
+    # gather grid
     grid_driver = setup_driver()
     grid_data, issue_urls = scrape_all_grid_pages(grid_driver)
     grid_driver.quit()
 
-    total_issues = len(issue_urls)
-    logging.info(f"Found {total_issues} total issue URLs (from all tabs).")
-    detail_count = 0
-    live_update_threshold = 20
-    live_update_counter = 0
-    results = []
-    max_workers = 15
+    logging.info(f"{len(issue_urls)} detail URLs collected; starting detail scrape …")
+    results, max_workers, live_counter = [], 5, 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        fut_to_url = {ex.submit(process_detail_page,u,scraped_log,grid_data):u for u in issue_urls}
+        for fut in concurrent.futures.as_completed(fut_to_url):
+            res = fut.result(); results.extend(res); live_counter += len(res)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_url = {executor.submit(process_detail_page, url, scraped_log, grid_data): url for url in issue_urls}
-        for future in concurrent.futures.as_completed(future_to_url):
-            url = future_to_url[future]
-            try:
-                data_list = future.result()
-                detail_count += 1
-                remaining = total_issues - detail_count
-                logging.info(f"Completed detail page {detail_count}/{total_issues} (remaining: {remaining}).")
-                if data_list:
-                    results.extend(data_list)
-                    live_update_counter += len(data_list)
-                if live_update_counter >= live_update_threshold:
-                    df_live = pd.DataFrame(results)
-                    # Data is already using correct column names so no renaming is needed here.
-                    desired_order = [
-                        "Tab",
-                        "Comic_Title",
-                        "Years",
-                        "Volume",
-                        "Country",
-                        "Issues_Note",
-                        "Issue_Number",
-                        "Issue_URL",
-                        "Image_URL",
-                        "Date",
-                        "Variant",
-                        "Edition",
-                        "Publisher_Name"
-                    ]
-                    existing_cols = [c for c in desired_order if c in df_live.columns]
-                    df_live = df_live.reindex(columns=existing_cols)
-                    df_live.to_excel("live_scraped_comics.xlsx", index=False)
-                    logging.info(f"Live output updated with {len(results)} records.")
-                    live_update_counter = 0
-            except Exception as e:
-                logging.error("Error in processing URL %s: %s", url, e)
+            # ----- live XLSX every N new rows -----
+            if live_counter >= LIVE_UPDATE_EVERY:
+                df_live = pd.DataFrame(results)
+                order = ["Tab","Comic_Title","Years","Volume","Country","Issues_Note",
+                         "Issue_Number","Issue_URL","Image_URL","Date","Variant","Edition",
+                         "Publisher_Name"]
+                df_live = df_live.reindex(columns=[c for c in order if c in df_live.columns])
+                df_live.to_excel("live_scraped_comics.xlsx", index=False)
+                logging.info(f"live_scraped_comics.xlsx updated ({len(results)} rows).")
+                live_counter = 0
+            # --------------------------------------
 
     if results:
         df = pd.DataFrame(results)
-        # Data is already correctly named.
-        desired_order = [
-            "Tab",
-            "Comic_Title",
-            "Years",
-            "Volume",
-            "Country",
-            "Issues_Note",
-            "Issue_Number",
-            "Issue_URL",
-            "Image_URL",
-            "Date",
-            "Variant",
-            "Edition",
-            "Publisher_Name"
-        ]
-        existing_cols = [c for c in desired_order if c in df.columns]
-        df = df.reindex(columns=existing_cols)
+        order = ["Tab","Comic_Title","Years","Volume","Country","Issues_Note",
+                 "Issue_Number","Issue_URL","Image_URL","Date","Variant","Edition",
+                 "Publisher_Name"]
+        df = df.reindex(columns=[c for c in order if c in df.columns])
         df.to_excel("scraped_comics.xlsx", index=False)
         logging.info("Data saved to scraped_comics.xlsx")
-
-        #  Create or use the sibling Step_2 folder: go up one level, then Step_2
-        step2_folder = "../Step_2"
-        os.makedirs(step2_folder, exist_ok=True)
-
-        final_dest = os.path.join(step2_folder, "scraped_comics.xlsx")
-        shutil.move("scraped_comics.xlsx", final_dest)
-        logging.info(f"Final output moved to {final_dest}")
+        os.makedirs("../Step_2", exist_ok=True)
+        shutil.move("scraped_comics.xlsx","../Step_2/scraped_comics.xlsx")
     else:
-        logging.info("No data scraped or no new data to save.")
+        logging.info("No new data scraped.")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@
 session_start();
 require_once 'db_connection.php';
 
-// If this endpoint is used to fetch tabs, handle that first.
+// ── FETCH TABS (if requested) ──
 if (isset($_GET['get_tabs'])) {
     $yearForTabs = $_GET['year'] ?? '';
     if (empty($yearForTabs)) {
@@ -26,7 +26,8 @@ if (isset($_GET['get_tabs'])) {
     exit;
 }
 
-$user_id      = $_SESSION['user_id'] ?? 0;
+// ── INPUTS ──
+$user_id      = $_SESSION['user_id']      ?? 0;
 $comic_title  = $_GET['comic_title']      ?? '';
 $year         = $_GET['year']             ?? '';
 $volume       = $_GET['volume']           ?? '';
@@ -34,200 +35,262 @@ $tab          = $_GET['tab']              ?? '';
 $issue_number = $_GET['issue_number']     ?? '';
 $include_var  = $_GET['include_variants'] ?? 0;
 
-// Store the last selected issue number for switching between tabs.
+// Remember last_issue_number for tab switching
 if ($tab === 'Issues' && !empty($issue_number)) {
-    $_SESSION['last_issue_number'] = str_replace('#', '', $issue_number);
+    $_SESSION['last_issue_number'] = str_replace('#','',$issue_number);
 }
 if ($tab === 'Variants' && empty($issue_number) && isset($_SESSION['last_issue_number'])) {
     $issue_number = $_SESSION['last_issue_number'];
 }
 
-// Only require a comic_title; let year/volume/tab be optional.
+// Must have comic_title
 if (!$comic_title) {
     echo "";
-    exit; 
+    exit;
+}
+
+// ── LOAD USER’S FAVORITES (now including years) ──
+$favoritedTitles = [];
+if ($user_id) {
+    $stmtFavs = $conn->prepare("
+      SELECT comic_title, years
+        FROM user_favorite_titles
+       WHERE user_id = ?
+    ");
+    $stmtFavs->bind_param("i", $user_id);
+    $stmtFavs->execute();
+    $resFavs = $stmtFavs->get_result();
+    while ($r = $resFavs->fetch_assoc()) {
+        $favoritedTitles[] = [
+            'comic_title' => $r['comic_title'],
+            'years'       => $r['years']
+        ];
+    }
+    $stmtFavs->close();
 }
 
 try {
-    $whereParts = [];
-    $params     = [];
-    $types      = '';
-
-    // Filter by comic title.
-    $whereParts[] = "c.Comic_Title = ?";
-    $params[]     = $comic_title;
-    $types       .= 's';
-
-    // Filter by volume or year.
+    // ── BUILD WHERE CLAUSE ──
+    $where = []; $params = []; $types = '';
+    $where[]  = "c.Comic_Title = ?";       $params[] = $comic_title; $types .= 's';
     if (trim($volume) !== "") {
-        $whereParts[] = "c.Volume = ?";
-        $params[]     = trim($volume);
-        $types       .= 's';
+        $where[]  = "c.Volume = ?";
+        $params[] = trim($volume);          $types .= 's';
     } else {
-        $whereParts[] = "c.Years = ?";
-        $params[]     = $year;
-        $types       .= 's';
+        $where[]  = "c.Years = ?";
+        $params[] = $year;                  $types .= 's';
     }
-
-    // Filter by tab.
     if ($tab !== 'All') {
-        $whereParts[] = "c.Tab = ?";
-        $params[]     = $tab;
-        $types       .= 's';
+        $where[]  = "c.Tab = ?";
+        $params[] = $tab;                   $types .= 's';
     }
-
-    // Issue number filtering.
     if ($issue_number && $issue_number !== "All") {
         if ($tab === 'Issues') {
-            $base_issue = str_replace('#', '', $issue_number);
+            $base = str_replace('#','',$issue_number);
             if (!$include_var) {
-                // Only the exact main issue.
-                $whereParts[] = "REPLACE(c.Issue_Number, '#', '') = ?";
-                $params[] = $base_issue;
-                $types .= 's';
+                $where[]  = "REPLACE(c.Issue_Number,'#','') = ?";
+                $params[] = $base;           $types .= 's';
             } else {
-                // Fetch the exact issue plus valid variant formats.
-                $whereParts[] = "(REPLACE(c.Issue_Number, '#', '') = ? 
-                                OR REPLACE(c.Issue_Number, '#', '') LIKE ? 
-                                OR REPLACE(c.Issue_Number, '#', '') REGEXP ?)";
-                $params[] = $base_issue;
-                $params[] = $base_issue . '[A-Z]%';
-                $params[] = '^' . preg_quote($base_issue) . '(?:[-.]?[A-Za-z].*)?$';
-                $types .= 'sss';
+                $where[]  = "(
+                    REPLACE(c.Issue_Number,'#','') = ?
+                    OR REPLACE(c.Issue_Number,'#','') LIKE ?
+                    OR REPLACE(c.Issue_Number,'#','') REGEXP ?
+                )";
+                $params[] = $base;
+                $params[] = $base.'[A-Z]%';
+                $params[] = '^'.preg_quote($base).'(?:[-.]?[A-Za-z].*)?$';
+                $types  .= 'sss';
             }
-        } elseif ($tab === 'Variants') {
-            $whereParts[] = "CAST(REPLACE(c.Issue_Number, '#', '') AS UNSIGNED) = ?";
-            $params[]     = (int) str_replace('#', '', $issue_number);
-            $types       .= 'i';
+        } else {
+            $where[]  = "CAST(REPLACE(c.Issue_Number,'#','') AS UNSIGNED) = ?";
+            $params[] = (int)$issue_number;    $types .= 'i';
         }
-    } else {
-        // When no specific issue number is provided (or "All" is selected)
-        if ($tab === 'Issues' && !$include_var) {
-            $whereParts[] = "REPLACE(c.Issue_Number, '#', '') REGEXP '^[0-9]+$'";
-        }
+    } elseif ($tab==='Issues' && !$include_var) {
+        $where[] = "REPLACE(c.Issue_Number,'#','') REGEXP '^[0-9]+$'";
     }
+    $whereClause = implode(' AND ', $where);
 
-    $whereClause = implode(' AND ', $whereParts);
-
+    // ── MAIN QUERY WITH PAGINATION ──
     $sql = "
-        SELECT
-          c.ID            AS comic_id,
-          c.Comic_Title   AS comic_title,
-          c.Issue_Number  AS issue_number,
-          c.Years         AS years,
-          c.Volume        AS volume,
-          c.Tab           AS tab,
-          c.Variant       AS variant,
-          c.Image_Path    AS image_path,
-          c.Issue_URL     AS issue_url,
-          c.`Date`        AS comic_date,
-          c.UPC           AS upc,
-          MAX(w.id)       AS wanted_id
-        FROM Comics c
-        LEFT JOIN wanted_items w
-          ON c.Comic_Title = w.comic_title
-         AND REPLACE(c.Issue_Number, '#', '') = REPLACE(w.issue_number, '#', '')
-         AND c.Years = w.years
-         AND w.user_id = ?
-         AND c.Issue_URL = w.issue_url
-        WHERE $whereClause
-        GROUP BY c.ID
-        ORDER BY CAST(REPLACE(c.Issue_Number, '#', '') AS UNSIGNED) ASC,
-                 (REPLACE(c.Issue_Number, '#', '') REGEXP '^[0-9]+$') DESC,
-                 c.Issue_Number ASC
+      SELECT
+        c.ID            AS comic_id,
+        c.Comic_Title   AS comic_title,
+        c.Issue_Number  AS issue_number,
+        c.Years         AS years,
+        c.Volume        AS volume,
+        c.Tab           AS tab,
+        c.Variant       AS variant,
+        c.Image_Path    AS image_path,
+        c.Issue_URL     AS issue_url,
+        c.`Date`        AS comic_date,
+        c.UPC           AS upc,
+        MAX(w.id)       AS wanted_id
+      FROM Comics c
+      LEFT JOIN wanted_items w
+        ON c.Comic_Title = w.comic_title
+       AND REPLACE(c.Issue_Number,'#','') = REPLACE(w.issue_number,'#','')
+       AND c.Years = w.years
+       AND w.user_id = ?
+       AND c.Issue_URL = w.issue_url
+      WHERE $whereClause
+      GROUP BY c.ID
+      ORDER BY
+        CAST(SUBSTRING_INDEX(REPLACE(c.Issue_Number,'#',''),'-',1) AS UNSIGNED),
+        CASE
+          WHEN REPLACE(c.Issue_Number,'#','') NOT LIKE '%-%' THEN 0
+          WHEN REPLACE(c.Issue_Number,'#','') REGEXP '^\\d+-[A-Z]+(-[A-Z0-9]+)?$' THEN 2
+          WHEN REPLACE(c.Issue_Number,'#','') REGEXP '^\\d+-[0-9A-Z]+$' THEN 1
+          ELSE 3
+        END,
+        c.Issue_Number
     ";
+    $limit  = (int)($_GET['limit']  ?? 20);
+    $offset = (int)($_GET['offset'] ?? 0);
+    $sql   .= " LIMIT ? OFFSET ?";
 
-    // Lazy Scroll / Pagination: Read limit and offset from GET parameters.
-    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
-    $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
-    $sql .= " LIMIT ? OFFSET ?";
-
-    // Prepend user_id (for the join condition) to our parameter list.
-    // Previously, $types was built for the where clause; now we add two integers.
-    $types = 'i' . $types . 'ii';
+    // prepend user_id and append limit/offset
+    $types = 'i'.$types.'ii';
     array_unshift($params, $user_id);
     $params[] = $limit;
     $params[] = $offset;
 
     $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        echo "<p class='text-danger'>DB error: " . htmlspecialchars($conn->error) . "</p>";
-        exit;
-    }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Output results as HTML.
     if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $title   = htmlspecialchars($row['comic_title']  ?? '');
-            $issue   = htmlspecialchars($row['issue_number'] ?? '');
-            $yrs     = htmlspecialchars($row['years']        ?? '');
-            $vol     = htmlspecialchars($row['volume']       ?? '');
-            $tabVal  = htmlspecialchars($row['tab']          ?? '');
-            $variant = htmlspecialchars($row['variant']      ?? '');
-            $wanted  = !empty($row['wanted_id']) ? 1 : 0;
-            $issue_url = htmlspecialchars($row['issue_url'] ?? '');
-            $comic_date = htmlspecialchars($row['comic_date'] ?? 'N/A');
-            $upc     = htmlspecialchars($row['upc'] ?? 'N/A');
+        // ── SERIES HEADER + FAVORITE BUTTON (first load only) ──
+        if ($offset === 0) {
+            $first       = $result->fetch_assoc();
+            $seriesTitle = htmlspecialchars($first['comic_title']);
+            $seriesYear  = htmlspecialchars($first['years']);
 
-            // Process image path.
-            $rawPath = trim($row['image_path'] ?? '');
-            if (empty($rawPath) || strtolower($rawPath) === 'null') {
-                $imgPath = "http://localhost/comicsmp/images/default.jpg";
-            } elseif (filter_var($rawPath, FILTER_VALIDATE_URL)) {
-                $imgPath = $rawPath;
-            } else {
-                if (strpos($rawPath, '/') !== 0) {
-                    $rawPath = '/' . $rawPath;
-                }
-                $imgPath = "http://localhost/comicsmp" . $rawPath;
-            }
+            // determine favorite state (using both title + year)
+            $isFav    = in_array(
+                ['comic_title'=>$seriesTitle, 'years'=>$seriesYear],
+                $favoritedTitles,
+                true
+            );
+            $icon     = $isFav ? '💖' : '❤️';
+            $btnClass = $isFav ? 'favorited' : '';
 
-            if (strpos($issue, '#') !== 0) {
-                $issue = '#' . $issue;
-            }
-
-            // Output the gallery item with proper data attributes.
-            echo "<div class='gallery-item'
-                          data-comic-title='{$title}'
-                          data-years='{$yrs}'
-                          data-issue-number='{$issue}'
-                          data-tab='{$tabVal}'
-                          data-variant='{$variant}'
-                          data-wanted='{$wanted}'
-                          data-full='" . htmlspecialchars($imgPath) . "'
-                          data-issue-url='{$issue_url}'
-                          data-date='{$comic_date}'
-                          data-upc='{$upc}'>
-                  <img src='" . htmlspecialchars($imgPath) . "' alt='" . $title . "' class='comic-image'>
-                  <p class='series-issue'>Issue: {$issue}</p>
-                  <div class='button-wrapper text-center'>";
-            if ($wanted) {
-                echo "<button class='btn btn-success add-to-wanted' disabled>Added</button>";
-            } else {
-                echo "<button class='btn btn-primary add-to-wanted'
-                              data-series-name='{$title}'
-                              data-issue-number='{$issue}'
-                              data-series-year='{$yrs}'
-                              data-issue-url='{$issue_url}'>Wanted</button>";
-            }
-            echo "<button class='btn btn-secondary sell-button'
-                          data-series-name='{$title}'
-                          data-issue-number='{$issue}'
-                          data-series-year='{$yrs}'
-                          data-issue-url='{$issue_url}'>Sell</button>";
-            echo "  </div>
-                  </div>";
+            // rewind for gallery loop
+            $result->data_seek(0);
+            ?>
+            <div class="series-header-box w-100 text-start mb-4">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <h5 style="font-size: 1.25rem; font-weight:600; margin:0;">
+                  <?= $seriesTitle ?> (<?= $seriesYear ?>)
+                </h5>
+                <?php if ($user_id): ?>
+                  <button
+                    class="btn btn-sm btn-outline-secondary favorite-title-btn <?= $btnClass ?>"
+                    data-comic-title="<?= $seriesTitle ?>"
+                    data-year="<?= $seriesYear ?>"
+                    style="font-size: 1.1rem;"
+                  >
+                    <span class="favorite-icon"><?= $icon ?></span>
+                  </button>
+                <?php endif; ?>
+              </div>
+              <hr style="margin:4px 0 0; border:none; border-top:1px solid #ccc;">
+            </div>
+            <?php
         }
+        ?>
+        <script>
+        // send both title+year to toggleFavoriteTitle.php
+        $(document).on('click', '.favorite-title-btn', function () {
+          const $btn        = $(this);
+          const title       = $btn.data('comic-title');
+          const years       = $btn.data('year');
+          const isFavorited = $btn.hasClass('favorited');
+
+          $.post('toggleFavoriteTitle.php', {
+            comic_title: title,
+            years:       years,
+            action:      isFavorited ? 'remove' : 'add'
+          }, function(response) {
+            if (response.status === 'success') {
+              $btn.toggleClass('favorited');
+              $btn.find('.favorite-icon')
+                  .text(isFavorited ? '❤️' : '💖');
+            } else {
+              alert(response.message || 'Failed to update favorites.');
+            }
+          }, 'json');
+        });
+        </script>
+        <?php
+
+        // ── GALLERY ITEMS ──
+        while ($row = $result->fetch_assoc()) {
+            $title   = htmlspecialchars($row['comic_title']);
+            $issue   = '#'.ltrim($row['issue_number'],'#');
+            $yrs     = htmlspecialchars($row['years']);
+            $tabVal  = htmlspecialchars($row['tab']);
+            $variant = htmlspecialchars($row['variant']);
+            $wanted  = !empty($row['wanted_id']);
+            $imgRaw  = trim($row['image_path']);
+            if (!$imgRaw || strtolower($imgRaw)==='null') {
+                $img = "/comicsmp/images/default.jpg";
+            } elseif (filter_var($imgRaw, FILTER_VALIDATE_URL)) {
+                $img = $imgRaw;
+            } else {
+                $img = "/comicsmp" . (strpos($imgRaw,'/')===0 ? $imgRaw : "/$imgRaw");
+            }
+            ?>
+            <div class="gallery-item"
+                 data-comic-title="<?= $title ?>"
+                 data-years="<?= $yrs ?>"
+                 data-issue-number="<?= $issue ?>"
+                 data-tab="<?= $tabVal ?>"
+                 data-variant="<?= $variant ?>"
+                 data-wanted="<?= (int)$wanted ?>"
+                 data-full="<?= htmlspecialchars($img) ?>"
+                 data-issue-url="<?= htmlspecialchars($row['issue_url']) ?>"
+                 data-date="<?= htmlspecialchars($row['comic_date']) ?>"
+                 data-upc="<?= htmlspecialchars($row['upc']) ?>">
+              <img src="<?= $img ?>"
+                   alt="<?= $title ?>"
+                   class="comic-image">
+              <p class="series-issue">Issue: <?= $issue ?></p>
+              <div class="button-wrapper text-center">
+                <?php if ($wanted): ?>
+                  <button class="btn btn-success" disabled>Added</button>
+                <?php else: ?>
+                  <button class="btn btn-primary add-to-wanted"
+                          data-series-name="<?= $title ?>"
+                          data-issue-number="<?= $issue ?>"
+                          data-series-year="<?= $yrs ?>"
+                          data-issue-url="<?= htmlspecialchars($row['issue_url']) ?>">
+                    Wanted
+                  </button>
+                <?php endif; ?>
+                <button class="btn btn-secondary sell-button"
+                        data-series-name="<?= $title ?>"
+                        data-issue-number="<?= $issue ?>"
+                        data-series-year="<?= $yrs ?>"
+                        data-issue-url="<?= htmlspecialchars($row['issue_url']) ?>">
+                  Sell
+                </button>
+              </div>
+            </div>
+            <?php
+        }
+
+        // close gallery loop
+        $stmt->close();
+
     } else {
         echo "";
     }
 
-    $stmt->close();
 } catch (Exception $e) {
-    echo "<p class='text-danger'>Exception: " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p class='text-danger'>Exception: "
+         . htmlspecialchars($e->getMessage())
+         . "</p>";
 } finally {
     $conn->close();
 }

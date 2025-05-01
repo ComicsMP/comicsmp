@@ -28,11 +28,13 @@ if ($folder == 'inbox') {
         JOIN users u ON (u.id = IF(c.user1_id = ?, c.user2_id, c.user1_id))
         LEFT JOIN private_messages pm ON pm.conversation_id = c.id
         WHERE ? IN (c.user1_id, c.user2_id)
+        AND (pm.deleted_for_user IS NULL OR NOT FIND_IN_SET(?, pm.deleted_for_user))
         GROUP BY c.id
         ORDER BY latest_msg_time DESC
     ";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iii", $user_id, $user_id, $user_id);
+    $stmt->bind_param("iiii", $user_id, $user_id, $user_id, $user_id);
+
 
 } elseif ($folder == 'sent') {
     $sql = "
@@ -422,20 +424,26 @@ if (!$currency) {
   });
 
   function deleteConversation(convId) {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      $.ajax({
-        url: "deleteConversation.php",
-        method: "POST",
-        data: { conversation_id: convId },
-        success: function(response) {
-          location.reload();
-        },
-        error: function() {
-          alert("Failed to delete the conversation.");
+  if (confirm("Are you sure you want to delete this conversation?")) {
+    $.ajax({
+      url: "deleteConversation.php",
+      method: "POST",
+      data: { conversation_id: convId },
+      dataType: "json",
+      success: function(response) {
+        if (response.status === "success") {
+          $(`.conversation-item[data-conv-id='${convId}']`).remove(); // ✅ delete live
+        } else {
+          alert(response.message || "Unable to delete conversation.");
         }
-      });
-    }
+      },
+      error: function() {
+        alert("Failed to delete the conversation.");
+      }
+    });
   }
+}
+
 
   let imagesArray = [];
   let currentIndex = 0;

@@ -9,22 +9,39 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 $userId = $_SESSION['user_id'];
+// Load user’s default distance settings from profile
+$defaultRadius = 500;
+$distanceUnit = 'mi';
+
+$userSettingsQuery = "SELECT default_max_radius, distance_unit FROM users WHERE id = ?";
+$stmtPrefs = $conn->prepare($userSettingsQuery);
+$stmtPrefs->bind_param("i", $userId);
+$stmtPrefs->execute();
+$stmtPrefs->bind_result($radius, $unit);
+if ($stmtPrefs->fetch()) {
+    $defaultRadius = $radius;
+    $distanceUnit = $unit;
+}
+$stmtPrefs->close();
+
 
 /**
- * Calculate distance (in miles) using the Haversine formula.
- * Returns a string like "284 mi" (rounded to a whole number).
+ * Calculate distance using the Haversine formula.
+ * Returns a string like "284 mi" or "457 km" (rounded to a whole number).
  */
-function calculateDistance($lat1, $lon1, $lat2, $lon2) {
+function calculateDistance($lat1, $lon1, $lat2, $lon2, $unit = 'mi') {
     $lat1 = deg2rad($lat1);
     $lon1 = deg2rad($lon1);
     $lat2 = deg2rad($lat2);
     $lon2 = deg2rad($lon2);
     $dlon = $lon2 - $lon1;
     $dlat = $lat2 - $lat1;
-    $a = pow(sin($dlat/2), 2) + cos($lat1) * cos($lat2) * pow(sin($dlon/2), 2);
+    $a = pow(sin($dlat / 2), 2) + cos($lat1) * cos($lat2) * pow(sin($dlon / 2), 2);
     $c = 2 * asin(sqrt($a));
-    $r = 3956; // radius in miles
-    return round($c * $r) . " mi";
+
+    // Radius of Earth: 3956 miles or 6371 kilometers
+    $r = ($unit === 'km') ? 6371 : 3956;
+    return round($c * $r) . " " . $unit;
 }
 
 // Fetch match notifications (table match_notifications always has buyer_id and seller_id)
@@ -242,16 +259,18 @@ unset($matchArray);
     .card:hover { transform: translateY(-3px); }
     
     /* Card Header: Two-column layout */
-    .card-header { display: flex; gap: 10px; margin-bottom: 8px; }
-    .matches-box { background: #575757; color: #fff; border-radius: 8px; padding: 10px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .matches-title { font-size: 18px; margin-bottom: 4px; font-weight: bold; }
-    .matches-count { margin: 0; line-height: 1; font-weight: bold; color: #fff; }
-    .matches-stats { font-size: 12px; margin-top: 4px; color: #fff; }
-    .user-info { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 14px; text-align: left; }
-    .user-info table { border-collapse: collapse; }
-    .user-info table td { padding: 2px 4px; }
-    .user-info table tr:nth-child(odd) { background-color: #fff; }
-    .user-info table tr:nth-child(even) { background-color: #f7f7f7; }
+.card-header { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+.matches-box { background: #575757; color: #fff; border-radius: 8px; padding: 10px; min-width: 100px; max-width: 120px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.matches-title { font-size: 18px; margin-bottom: 4px; font-weight: bold; }
+.matches-count { margin: 0; line-height: 1; font-weight: bold; color: #fff; }
+.matches-stats { font-size: 12px; margin-top: 4px; color: #fff; }
+.user-info { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 14px; text-align: left; }
+.user-info table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+.user-info table td { padding: 2px 4px; vertical-align: top; text-align: left; }
+.user-info table td:first-child { width: 70px; font-weight: bold; }
+.user-info table td:nth-child(2) { width: calc(100% - 70px); word-break: break-word; text-align: left; }
+
+    
     
     /* Action Buttons */
     .actions { margin-top: 8px; display: flex; gap: 8px; }
@@ -455,13 +474,23 @@ unset($matchArray);
       loadFilterStatus();
       
       // On page load, restore the distance setting from localStorage (default 500 if not set)
-      var savedDistance = localStorage.getItem('maxDistance');
-      if(savedDistance === null) {
-          savedDistance = "500";
-          localStorage.setItem('maxDistance', savedDistance);
-      }
-      $('#distanceSlider').val(savedDistance);
-      $('#distanceValue').text(savedDistance + " mi");
+      const slider = document.getElementById('distanceSlider');
+const unit = slider?.dataset.unit || 'mi';
+let radiusVal = localStorage.getItem('maxDistance') || slider?.value || 500;
+$('#distanceSlider').val(radiusVal);
+$('#distanceValue').text(radiusVal + " " + unit);
+
+
+// Update localStorage only if nothing stored
+if (!localStorage.getItem('maxDistance')) {
+    localStorage.setItem('maxDistance', radiusVal);
+} else {
+    radiusVal = localStorage.getItem('maxDistance');
+    $('#distanceSlider').val(radiusVal);
+}
+
+$('#distanceValue').text(radiusVal + " " + unit);
+
       
       // Use saved filter options (do not force active by default now).
       applyDistanceFilter();
@@ -484,11 +513,16 @@ unset($matchArray);
       
       // Distance Slider Change Handler.
       $('#distanceSlider').on('input change', function(){
-        var maxDistance = parseInt($(this).val());
-        $('#distanceValue').text(maxDistance + " mi");
-        localStorage.setItem('maxDistance', maxDistance);
-        applyDistanceFilter();
-      });
+  const unit = $(this).data('unit') || 'mi';
+  const maxDistance = parseInt($(this).val());
+  $('#distanceValue').text(maxDistance + " " + unit);
+  localStorage.setItem('maxDistance', maxDistance);
+  applyDistanceFilter();
+});
+
+
+applyDistanceFilter();  // ensures that filter applies based on default on first load
+
       
       // --- New Filter Popup Logic ---
       // When the filter button is clicked, ensure any active cover popup is closed, then open the filter popup.
@@ -837,8 +871,18 @@ unset($matchArray);
   <!-- Filter Area -->
   <div class="filter-area">
     <div class="filter-controls" style="flex-direction: row; align-items: center; gap:10px;">
-      <label for="distanceSlider" style="margin:0;">Max Distance: <span id="distanceValue">500 mi</span></label>
-      <input type="range" id="distanceSlider" min="0" max="1000" value="500" step="10">
+      <label for="distanceSlider" style="margin:0;">
+  Max Distance: 
+  <span id="distanceValue"><?php echo htmlspecialchars($defaultRadius); ?> <?php echo htmlspecialchars($distanceUnit); ?></span>
+</label>
+<input type="range" 
+       id="distanceSlider" 
+       min="0" 
+       max="1000" 
+       value="<?php echo htmlspecialchars($defaultRadius); ?>" 
+       step="10" 
+       data-unit="<?php echo htmlspecialchars($distanceUnit); ?>">
+
       <!-- New Filter button placed to the right of the slider -->
       <button class="filter-btn" id="filterBtn">Filter</button>
     </div>
@@ -893,20 +937,31 @@ unset($matchArray);
                 $sellerId = null;
             }
             if ($buyerId == $userId) {
-                $otherCity = $first['seller_city'] ?? '';
-                $distanceStr = "";
-                if (!empty($first['buyer_lat']) && !empty($first['buyer_lng']) &&
-                    !empty($first['seller_lat']) && !empty($first['seller_lng'])) {
-                    $distanceStr = calculateDistance($first['buyer_lat'], $first['buyer_lng'], $first['seller_lat'], $first['seller_lng']);
-                }
-            } else {
-                $otherCity = $first['buyer_city'] ?? '';
-                $distanceStr = "";
-                if (!empty($first['seller_lat']) && !empty($first['seller_lng']) &&
-                    !empty($first['buyer_lat']) && !empty($first['buyer_lng'])) {
-                    $distanceStr = calculateDistance($first['seller_lat'], $first['seller_lng'], $first['buyer_lat'], $first['buyer_lng']);
-                }
-            }
+    $otherCity = $first['seller_city'] ?? '';
+    $distanceStr = "";
+    if (!empty($first['buyer_lat']) && !empty($first['buyer_lng']) &&
+        !empty($first['seller_lat']) && !empty($first['seller_lng'])) {
+        $distanceStr = calculateDistance(
+            $first['buyer_lat'], $first['buyer_lng'],
+            $first['seller_lat'], $first['seller_lng'],
+            $distanceUnit
+        );
+    }
+}
+
+           else {
+    $otherCity = $first['buyer_city'] ?? '';
+    $distanceStr = "";
+    if (!empty($first['seller_lat']) && !empty($first['seller_lng']) &&
+        !empty($first['buyer_lat']) && !empty($first['buyer_lng'])) {
+        $distanceStr = calculateDistance(
+            $first['seller_lat'], $first['seller_lng'],
+            $first['buyer_lat'], $first['buyer_lng'],
+            $distanceUnit
+        );
+    }
+}
+
             $stats = $matchArray['stats'];
             $fontSize = getMatchFontSize($count);
             $userInfo = $userNamesMap[$otherUserId] ?? ['username' => "User #$otherUserId", 'city' => $otherCity, 'preferred_transaction' => '', 'preferred_payment' => ''];
@@ -951,12 +1006,47 @@ unset($matchArray);
                 </tr>
                 <tr>
                   <td><strong>Trans:</strong></td>
-                  <td><?php echo htmlspecialchars($userInfo['preferred_transaction']); ?></td>
+<td>
+  <?php
+    $transRaw = strtolower($userInfo['preferred_transaction'] ?? '');
+    $icons = [];
+
+    if (strpos($transRaw, 'shipping') !== false) {
+        $icons[] = '<i class="bi bi-truck" title="Shipping"></i>';
+    }
+    if (strpos($transRaw, 'meetup') !== false) {
+        $icons[] = '<i class="bi bi-people" title="Meetup"></i>';
+    }
+    if (strpos($transRaw, 'pickup') !== false) {
+        $icons[] = '<i class="bi bi-house-door" title="Pickup"></i>'; // ✅ this one shows up reliably
+    }
+
+    echo implode(' ', $icons);
+  ?>
+</td>
                 </tr>
                 <tr>
-                  <td><strong>Pay:</strong></td>
-                  <td><?php echo htmlspecialchars($userInfo['preferred_payment']); ?></td>
-                </tr>
+  <td><strong>Pay:</strong></td>
+  <td>
+    <?php
+      $payRaw = strtolower($userInfo['preferred_payment'] ?? '');
+      $icons = [];
+
+      if (strpos($payRaw, 'cash') !== false) {
+          $icons[] = '<i class="bi bi-cash-coin" title="Cash"></i>';
+      }
+      if (strpos($payRaw, 'e-transfer') !== false || strpos($payRaw, 'etransfer') !== false) {
+          $icons[] = '<i class="bi bi-bank" title="E-Transfer"></i>';
+      }
+      if (strpos($payRaw, 'paypal') !== false) {
+          $icons[] = '<i class="bi bi-p-circle" title="PayPal"></i>';
+      }
+
+      echo implode(' ', $icons);
+    ?>
+  </td>
+</tr>
+
               </table>
             </div>
           </div>

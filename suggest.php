@@ -3,69 +3,65 @@ require_once 'db_connection.php';
 
 // GET parameters
 $q       = $_GET['q']       ?? '';
-$mode    = $_GET['mode']    ?? 'allWords'; // default
-$country = $_GET['country'] ?? '';         // new: country parameter
+$mode    = $_GET['mode']    ?? 'startsWith'; // default to the most reliable
+$country = $_GET['country'] ?? '';
 
-// If $q is too short, exit
-if (strlen($q) < 2) {
-    exit;
+if (strlen(trim($q)) < 2) exit;
+
+// Normalize input for smart match
+function normalize_query($text) {
+    $s = preg_replace('/[\-:()]+/', ' ', $text); // Replace common punctuation with space
+    $s = preg_replace('/\s+/', ' ', $s);         // Collapse multiple spaces
+    return strtolower(trim($s));
 }
 
-// Build base query
-$sql = "SELECT DISTINCT Comic_Title FROM Comics WHERE 1=1";
+$params = [];
+$types  = "";
 
-// Add country filter if provided
-if (!empty($country)) {
-    $sql .= " AND Country = '" . $conn->real_escape_string($country) . "'";
-}
-
-// Build conditions based on mode
 switch ($mode) {
-    case 'allWords':
-        $words = preg_split('/\s+/', $q);
-        foreach ($words as $w) {
-            $sql .= " AND Comic_Title LIKE '%" . $conn->real_escape_string($w) . "%'";
+    case 'smart':
+        $normalized = normalize_query($q);
+        $words = explode(' ', $normalized);
+        $filtered = array_filter($words, fn($w) => strlen($w) > 1 && !in_array($w, ['a', 'an', 'the']));
+        if (empty($filtered)) {
+            exit; // nothing meaningful left to search
         }
+        $boolean_query = '+' . implode('* +', $filtered) . '*';
+
+
+
+        $sql = "SELECT DISTINCT original_title AS Comic_Title
+                FROM Comic_SearchIndex
+                WHERE MATCH(normalized_title) AGAINST(? IN BOOLEAN MODE)";
+        $params[] = $boolean_query;
+        $types   .= "s";
         break;
-    case 'anyWords':
-        $words = preg_split('/\s+/', $q);
-        $likeClauses = [];
-        foreach ($words as $w) {
-            $likeClauses[] = "Comic_Title LIKE '%" . $conn->real_escape_string($w) . "%'";
-        }
-        if (!empty($likeClauses)) {
-            $sql .= " AND (" . implode(' OR ', $likeClauses) . ")";
-        }
-        break;
+
     case 'startsWith':
-        $sql .= " AND Comic_Title LIKE '" . $conn->real_escape_string($q) . "%'";
-        break;
-    case 'exactPhrase':
-        $sql .= " AND Comic_Title LIKE '%" . $conn->real_escape_string($q) . "%'";
-        break;
     default:
-        $words = preg_split('/\s+/', $q);
-        foreach ($words as $w) {
-            $sql .= " AND Comic_Title LIKE '%" . $conn->real_escape_string($w) . "%'";
-        }
+        $sql = "SELECT DISTINCT Comic_Title FROM Comics WHERE Comic_Title LIKE ?";
+        $params[] = $q . '%';
+        $types   .= "s";
         break;
 }
 
-// Limit the number of suggestions returned
-$sql .= " LIMIT 20";
+$sql .= " ORDER BY Comic_Title ASC LIMIT 50";
 
-// Run query
-$result = $conn->query($sql);
-if (!$result) {
-    echo "<p class='text-danger'>DB error: " . $conn->error . "</p>";
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    echo "<p class='text-danger'>DB error: " . htmlspecialchars($conn->error) . "</p>";
     exit;
 }
-
-// Output suggestions
-while ($row = $result->fetch_assoc()) {
-    $title = htmlspecialchars($row['Comic_Title']);
-    echo "<div class='suggestion-item'>$title</div>";
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
 }
-$result->close();
+$stmt->execute();
+$res = $stmt->get_result();
+
+while ($row = $res->fetch_assoc()) {
+    echo "<div class='suggestion-item'>" . htmlspecialchars($row['Comic_Title']) . "</div>";
+}
+
+$stmt->close();
 $conn->close();
 ?>

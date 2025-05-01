@@ -11,6 +11,52 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 
   <style>
+    /*–– style the range input so its “fill” follows the thumb exactly ––*/
+  #distanceSlider {
+    --range-fill: 0%;
+    background: transparent;
+  }
+  /* WebKit track: light gray, with a blue gradient up to the thumb */
+  #distanceSlider::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #dee2e6;
+    border-radius: 3px;
+    background-image:
+      linear-gradient(
+        to right,
+        #0d6efd var(--range-fill),
+        transparent var(--range-fill)
+      );
+    background-repeat: no-repeat;
+  }
+  /* WebKit thumb: a blue circle centered on the track */
+  #distanceSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #0d6efd;
+    margin-top: -5px;
+  }
+
+  /* Firefox track and progress */
+  #distanceSlider::-moz-range-track {
+    height: 6px;
+    background: #dee2e6;
+    border-radius: 3px;
+  }
+  #distanceSlider::-moz-range-progress {
+    background: #0d6efd;
+    height: 6px;
+    border-radius: 3px;
+  }
+  #distanceSlider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #0d6efd;
+    border: none;
+  }
     body { font-family: 'Roboto', sans-serif; background: #f0f2f5; color: #333; }
     a { text-decoration: none; color: inherit; }
 
@@ -37,6 +83,24 @@
   justify-content: space-between;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.extra-favorite {
+  display: none;
+}
+
+#favoritesList {
+  list-style: none;
+  padding-left: 0;
+}
+
+#suggestionsPanel .suggestion-item {
+  cursor: pointer;
+  padding: .5rem;
+  border-bottom: 1px solid #eee;
+}
+#suggestionsPanel .suggestion-item:hover {
+  background-color: #f8f9fa;
 }
 
 
@@ -93,6 +157,22 @@ input[type="range"].form-range::-ms-track {
   border-radius: 0px;
   border-color: transparent;
   color: transparent;
+}
+
+.favorite-title-btn.favorited .favorite-icon {
+  color: #e60073;
+  text-shadow: 0 0 4px #ff80bf;
+}
+
+
+.favorite-title-btn.favorited {
+  background-color: #ffc0cb;
+  border-color: #ff9aa2;
+  color: #a10000;
+  opacity: 0.85;
+}
+.favorite-title-btn.favorited:hover {
+  opacity: 1;
 }
 
 

@@ -81,24 +81,28 @@ if (!function_exists('fixImagePath')) {
     </div>
 
     <!-- SEARCH TAB -->
-    <div class="tab-pane fade" id="search" role="tabpanel">
-      <section class="content-area">
-        <div class="search-controls mb-3">
-          <div id="tabButtons" class="btn-group mb-2" role="group" aria-label="Tab Buttons">
-            <!-- Populated by your JavaScript (updateTabButtons) -->
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <select id="issueSelectMain" class="form-select" style="display:none; max-width: 160px;">
-              <!-- Populated by loadMainIssues() -->
-            </select>
-            <button id="variantToggleMain" type="button" class="btn btn-outline-primary" data-enabled="0" style="display:none;">
-              Include Variants
-            </button>
-          </div>
-        </div>
-        <div id="resultsGallery" class="gallery"></div>
-      </section>
+<div class="tab-pane fade" id="search" role="tabpanel">
+  <section class="content-area">
+    <div class="search-controls mb-3">
+      <div id="tabButtons" class="btn-group mb-2" role="group" aria-label="Tab Buttons">
+        <!-- Populated by your JavaScript (updateTabButtons) -->
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <select id="issueSelectMain" class="form-select" style="display:none; max-width: 160px;">
+          <!-- Populated by loadMainIssues() -->
+        </select>
+        <button id="variantToggleMain" type="button" class="btn btn-outline-primary" data-enabled="0" style="display:none;">
+          Include Variants
+        </button>
+      </div>
     </div>
+
+    <!-- ✅ New wrapper added here -->
+    <div id="search-results">
+      <div id="resultsGallery" class="gallery"></div>
+    </div>
+  </section>
+</div>
 
     <!-- WANTED TAB -->
     <div class="tab-pane fade" id="wanted" role="tabpanel">

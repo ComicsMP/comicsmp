@@ -98,42 +98,72 @@ if (!isset($_SESSION['user_id'])) {
     });
   }
 
-  function sortMatches() {
-    const mode = $('#matchSortSelect').val();
-    const $tbody = $('#matchesContainer #matchesTable tbody');
-    const rows = $tbody.find('tr.main-row').get();
+ function sortMatches() {
+  const mode = $('#matchSortSelect').val();
+  const $tbody = $('#matchesContainer #matchesTable tbody');
 
-    rows.sort((a, b) => {
-      const A = $(a), B = $(b);
-      if (mode === 'newest')   return B.data('match-time')  - A.data('match-time');
-      if (mode === 'closest')  return A.data('distance')    - B.data('distance');
-      if (mode === 'most')     return B.data('match-count') - A.data('match-count');
-      return 0;
-    });
+  // Save references to all detail rows
+  const detailMap = {};
+  $tbody.find('tr.detail-row').each(function () {
+    const $detail = $(this);
+    const id = $detail.attr('id').replace('detail-', '');
+    detailMap[id] = $detail.clone(true); // clone it!
+  });
 
-    $tbody.empty();
-    rows.forEach(row => {
-      const $main = $(row);
-      const id = $main.data('user-id');
-      const $detail = $('#detail-' + id);
-      $tbody.append($main).append($detail);
-    });
-  }
+  // Grab and sort all main rows
+  const rows = $tbody.find('tr.main-row').get();
+  rows.sort((a, b) => {
+    const A = $(a), B = $(b);
+    if (mode === 'newest')   return B.data('match-time')  - A.data('match-time');
+    if (mode === 'closest')  return A.data('distance')    - B.data('distance');
+    if (mode === 'most')     return B.data('match-count') - A.data('match-count');
+    return 0;
+  });
+
+  // Rebuild tbody
+  const sortedRows = [];
+  rows.forEach(row => {
+    const $main = $(row).clone(true); // clone main row too
+    const id = $main.data('user-id');
+    const $detail = detailMap[id];
+    sortedRows.push($main);
+    if ($detail) sortedRows.push($detail);
+  });
+
+  $tbody.empty().append(sortedRows);
+}
+
+
 
   function loadMatches() {
-    $.get('includes/matches.php', function(html) {
-      $('#matchesContainer').html(html);
-      $('#activeCheckbox').prop('checked', true);
-      $('#hiddenCheckbox').prop('checked', false);
-      $('#distanceSlider').val(750);
-      $('#distanceValue').text(750);
-      sortMatches();
-      filterMatches();
-      bindCoverClicks();
-    }).fail(() => {
-      $('#matchesContainer').html('<div class="text-danger">Error loading matches.</div>');
-    });
-  }
+  $.get('includes/matches.php', function(html) {
+    $('#matchesContainer').html(html);
+    $('#activeCheckbox').prop('checked', true);
+    $('#hiddenCheckbox').prop('checked', false);
+    bindCoverClicks();
+
+    // Wait until #distanceSlider is available
+    let tries = 0;
+    const maxTries = 20;
+    const checkSliderReady = setInterval(() => {
+      const slider = document.getElementById('distanceSlider');
+      if (slider && slider.value) {
+        console.log("✅ Slider ready, triggering input");
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+        clearInterval(checkSliderReady);
+      } else {
+        tries++;
+        if (tries >= maxTries) {
+          console.warn("❌ Still no #distanceSlider or value after 20 tries");
+          clearInterval(checkSliderReady);
+        }
+      }
+    }, 100); // try every 100ms
+  }).fail(() => {
+    $('#matchesContainer').html('<div class="text-danger">Error loading matches.</div>');
+  });
+}
+
 
   function loadWanted(){
     $.get('includes/wanted.php', function(html){
@@ -166,17 +196,23 @@ if (!isset($_SESSION['user_id'])) {
     $(document)
       .on('change', '#matchSortSelect', sortMatches)
       .on('input change', '#distanceSlider', function() {
-        $('#distanceValue').text(this.value);
-        filterMatches();
-      })
-      .on('change', '#activeCheckbox, #hiddenCheckbox', filterMatches)
+  // compute percentage along the track
+  const pct = (this.value - this.min) / (this.max - this.min) * 100;
+  // update the CSS variable so the fill grows/shrinks with the thumb
+  this.style.setProperty('--range-fill', pct + '%');
+
+  // existing behavior:
+  $('#distanceValue').text(this.value);
+  filterMatches();
+})
+.on('change', '#activeCheckbox, #hiddenCheckbox', filterMatches)
       .on('click', '.expand-btn', function() {
         const id = $(this).data('user-id');
         $('#detail-' + id).toggle();
       })
       .on('click', '.delete-match-btn', function() {
         const uid = $(this).data('match-user-id');
-        if (!confirm('Permanently delete this match?')) return;
+        if (!confirm("Warning: Deleting this contact will permanently remove all match information and block any future matches with this person. We recommend using 'Hide' if you might want to see new matches later. Are you sure you want to delete?")) return;
         $.post(
           '/comicsmp/api/deleteMatch.php',
           { match_user_id: uid },
@@ -224,13 +260,31 @@ if (!isset($_SESSION['user_id'])) {
           alert('Server error toggling hide.');
         });
       })
-      .on('click', '.pm-btn', function() {
-        const uid = $(this).data('user-id');
-        alert('Open PM to user ' + uid);
+
+      // —— NEW: wire PM to matches_msg.php ——
+      .on('click', '.pm-btn', function(e) {
+        e.preventDefault();
+        const btn          = $(this);
+        const to           = btn.data('user-id');
+        const intent       = btn.data('intent');
+        const displayname  = btn.data('displayname');
+        const rawBuy       = btn.attr('data-buy-matches')  || '[]';
+        const rawSell      = btn.attr('data-sell-matches') || '[]';
+        let buyMatches = [], sellMatches = [];
+        try { buyMatches  = JSON.parse(rawBuy);  } catch(_) {}
+        try { sellMatches = JSON.parse(rawSell); } catch(_) {}
+        const params = new URLSearchParams({
+          to:            to,
+          intent:        intent,
+          displayname:   displayname,
+          buy_matches:   JSON.stringify(buyMatches),
+          sell_matches:  JSON.stringify(sellMatches)
+        });
+        window.location.href = 'includes/matches_msg.php?' + params.toString();
       });
   });
 
-   // 🔧 Fix: Profile tab activation + cleanly remove it on tab switch
+  // 🔧 Fix: Profile tab activation + cleanly remove it on tab switch
   document.addEventListener("DOMContentLoaded", function () {
     const profileLink = document.querySelector('a.dropdown-item[data-bs-target="#profile"]');
     const profileTabPane = document.querySelector('#profile');
@@ -238,13 +292,10 @@ if (!isset($_SESSION['user_id'])) {
     if (profileLink && profileTabPane) {
       profileLink.addEventListener("click", function (e) {
         e.preventDefault();
-        // Deactivate all tab panes
         document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('show', 'active'));
-        // Activate profile
         profileTabPane.classList.add('show', 'active');
       });
 
-      // Clean up: when any other tab is activated via Bootstrap, remove profile tab active class
       document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabToggle => {
         tabToggle.addEventListener('shown.bs.tab', function () {
           if (profileTabPane.classList.contains('active')) {
@@ -254,6 +305,8 @@ if (!isset($_SESSION['user_id'])) {
       });
     }
   });
+
+
 
 </script>
 </body>
