@@ -1,11 +1,40 @@
-<!-- Modals.php -->
-<!-- MODALS -->
+<?php
+// Modals.php
+// -------------------------
+// Grade Mapping for Abbreviations (use string keys)
+// -------------------------
+$gradeMapping = [
+    "10.0" => "Gem Mint",
+    "9.9"  => "Mint",
+    "9.8"  => "NM/M",
+    "9.6"  => "NM+",
+    "9.4"  => "NM",
+    "9.2"  => "NM-",
+    "9.0"  => "VF/NM",
+    "8.5"  => "VF+",
+    "8.0"  => "VF",
+    "7.5"  => "VF-",
+    "7.0"  => "FN/VF",
+    "6.5"  => "FN+",
+    "6.0"  => "FN",
+    "5.5"  => "FN-",
+    "5.0"  => "VG/FN",
+    "4.5"  => "VG+",
+    "4.0"  => "VG",
+    "3.5"  => "VG-",
+    "3.0"  => "G/VG",
+    "2.5"  => "G",
+    "2.0"  => "G",
+    "1.8"  => "G-",
+    "1.5"  => "Fa/G",
+    "1.0"  => "Fa",
+    "0.5"  => "Poor"
+];
+?>
 
 <style>
   /* UPC container: keep everything on one line */
-  #popupUPCContainer {
-    white-space: nowrap; /* Prevent line breaks */
-  }
+  #popupUPCContainer { white-space: nowrap; }
   /* UPC text and button: inline, same font/size */
   #popupUPC, #submitUPCBtn {
     display: inline-block;
@@ -19,7 +48,7 @@
   #submitUPCBtn {
     background: none;
     border: none;
-    color: #007bff; /* Typical link color */
+    color: #007bff;
     text-decoration: underline;
     cursor: pointer;
   }
@@ -48,31 +77,12 @@
           <div class="mb-3">
             <label for="editCondition" class="form-label">Condition</label>
             <select class="form-select" id="editCondition" name="condition" required>
-              <option value="10">10</option>
-              <option value="9.9">9.9</option>
-              <option value="9.8">9.8</option>
-              <option value="9.6">9.6</option>
-              <option value="9.4">9.4</option>
-              <option value="9.2">9.2</option>
-              <option value="9.0">9.0</option>
-              <option value="8.5">8.5</option>
-              <option value="8.0">8.0</option>
-              <option value="7.5">7.5</option>
-              <option value="7.0">7.0</option>
-              <option value="6.5">6.5</option>
-              <option value="6.0">6.0</option>
-              <option value="5.5">5.5</option>
-              <option value="5.0">5.0</option>
-              <option value="4.5">4.5</option>
-              <option value="4.0">4.0</option>
-              <option value="3.5">3.5</option>
-              <option value="3.0">3.0</option>
-              <option value="2.5">2.5</option>
-              <option value="2.0">2.0</option>
-              <option value="1.8">1.8</option>
-              <option value="1.5">1.5</option>
-              <option value="1.0">1.0</option>
-              <option value="0.5">0.5</option>
+              <option value="">Select Condition</option>
+              <?php foreach ($gradeMapping as $score => $label): ?>
+                <option value="<?= htmlspecialchars($score) ?>">
+                  <?= htmlspecialchars("{$score} ({$label})") ?>
+                </option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="mb-3">
@@ -112,31 +122,11 @@
             <label for="bulkEditCondition" class="form-label">Condition</label>
             <select class="form-select" id="bulkEditCondition" name="condition" required>
               <option value="">Select Condition</option>
-              <option value="10">10</option>
-              <option value="9.9">9.9</option>
-              <option value="9.8">9.8</option>
-              <option value="9.6">9.6</option>
-              <option value="9.4">9.4</option>
-              <option value="9.2">9.2</option>
-              <option value="9.0">9.0</option>
-              <option value="8.5">8.5</option>
-              <option value="8.0">8.0</option>
-              <option value="7.5">7.5</option>
-              <option value="7.0">7.0</option>
-              <option value="6.5">6.5</option>
-              <option value="6.0">6.0</option>
-              <option value="5.5">5.5</option>
-              <option value="5.0">5.0</option>
-              <option value="4.5">4.5</option>
-              <option value="4.0">4.0</option>
-              <option value="3.5">3.5</option>
-              <option value="3.0">3.0</option>
-              <option value="2.5">2.5</option>
-              <option value="2.0">2.0</option>
-              <option value="1.8">1.8</option>
-              <option value="1.5">1.5</option>
-              <option value="1.0">1.0</option>
-              <option value="0.5">0.5</option>
+              <?php foreach ($gradeMapping as $score => $label): ?>
+                <option value="<?= htmlspecialchars($score) ?>">
+                  <?= htmlspecialchars("{$score} ({$label})") ?>
+                </option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="mb-3">
@@ -177,31 +167,12 @@
         <!-- Right Column: Details & Similar Issues -->
         <div class="popup-details-container">
           <table class="table table-sm">
-            <tr>
-              <th>Comic Title:</th>
-              <td id="popupComicTitle"></td>
-            </tr>
-            <tr>
-              <th>Years:</th>
-              <td id="popupYears"></td>
-            </tr>
-            <tr>
-              <th>Issue Number:</th>
-              <td id="popupIssueNumber"></td>
-            </tr>
-            <tr>
-              <th>Tab:</th>
-              <td id="popupTab"></td>
-            </tr>
-            <tr>
-              <th>Variant:</th>
-              <td id="popupVariant"></td>
-            </tr>
-            <tr>
-              <th>Date:</th>
-              <td id="popupDate"></td>
-            </tr>
-            <!-- UPC Row with submission option -->
+            <tr><th>Comic Title:</th><td id="popupComicTitle"></td></tr>
+            <tr><th>Years:</th><td id="popupYears"></td></tr>
+            <tr><th>Issue Number:</th><td id="popupIssueNumber"></td></tr>
+            <tr><th>Tab:</th><td id="popupTab"></td></tr>
+            <tr><th>Variant:</th><td id="popupVariant"></td></tr>
+            <tr><th>Date:</th><td id="popupDate"></td></tr>
             <tr>
               <th>UPC:</th>
               <td id="popupUPCContainer">
@@ -209,7 +180,6 @@
                 <button id="submitUPCBtn" class="btn btn-link btn-sm" style="display: none;">Add UPC</button>
               </td>
             </tr>
-            <!-- Hidden UPC submission form row -->
             <tr id="upcSubmissionRow" style="display: none;">
               <th colspan="2">
                 <div class="input-group">
@@ -219,18 +189,9 @@
                 </div>
               </th>
             </tr>
-            <tr id="popupConditionRow">
-              <th>Condition:</th>
-              <td id="popupCondition"></td>
-            </tr>
-            <tr id="popupGradedRow">
-              <th>Graded:</th>
-              <td id="popupGraded"></td>
-            </tr>
-            <tr id="popupPriceRow">
-              <th>Price:</th>
-              <td id="popupPrice"></td>
-            </tr>
+            <tr id="popupConditionRow"><th>Condition:</th><td id="popupCondition"></td></tr>
+            <tr id="popupGradedRow"><th>Graded:</th><td id="popupGraded"></td></tr>
+            <tr id="popupPriceRow"><th>Price:</th><td id="popupPrice"></td></tr>
           </table>
           <div class="similar-issues">
             <h6>Similar Issues</h6>
@@ -274,93 +235,39 @@
   </div>
 </div>
 
-<!-- JavaScript for UPC Submission in Cover Popup Modal and UPC Formatting -->
+<!-- JavaScript for UPC Submission + Formatting -->
 <script>
-
 $(document).ready(function(){
-  // When the Cover Popup Modal is shown, check if the UPC is missing or "N/A"
   $('#coverPopupModal').on('shown.bs.modal', function () {
-    var currentUPC = $('#popupUPC').text().trim();
-    // If UPC is empty or "N/A", clear it and show the Add UPC button.
-    if(currentUPC === "" || currentUPC === "N/A"){
-      $('#popupUPC').text("");  // Clear the display so it aligns with the button.
+    const currentUPC = $('#popupUPC').text().trim();
+    if (currentUPC === "" || currentUPC === "N/A") {
+      $('#popupUPC').text("");
       $('#submitUPCBtn').show();
     } else {
-      $('#submitUPCBtn').hide();
-      $('#upcSubmissionRow').hide();
+      $('#submitUPCBtn, #upcSubmissionRow').hide();
     }
   });
-  
-  // When the "Add UPC" button is clicked, show the UPC input form.
-  $('#submitUPCBtn').on('click', function(){
-    $('#upcSubmissionRow').show();
-    $('#newUPC').val("").focus();
-  });
-  
-  // Cancel UPC submission.
-  $('#cancelUPCBtn').on('click', function(){
-    $('#upcSubmissionRow').hide();
-  });
-  
-  // Function to format the UPC input automatically.
-  // Rule: If total digits (after removing non-digits) are 14 or less, leave as is.
-  // If greater than 14, insert a hyphen after the 12th digit.
-  function formatUPC(input) {
-    let digits = input.replace(/\D/g, '');
-    if (digits.length <= 14) {
-      return digits;
-    } else {
-      return digits.slice(0, 12) + '-' + digits.slice(12);
-    }
-  }
+  $('#submitUPCBtn').click(()=> $('#upcSubmissionRow').show() );
+  $('#cancelUPCBtn').click(()=> $('#upcSubmissionRow').hide() );
 
-  // Attach an event handler to the UPC input field on blur to auto-format.
-  $('#newUPC').on('blur', function() {
-    let currentVal = $(this).val();
-    let formattedVal = formatUPC(currentVal);
-    $(this).val(formattedVal);
+  function formatUPC(input) {
+    let d = input.replace(/\D/g,'');
+    return d.length<=14 ? d : d.slice(0,12)+'-'+d.slice(12);
+  }
+  $('#newUPC').blur(function(){
+    $(this).val(formatUPC(this.value));
   });
-  
-  // Save the new UPC.
-  $('#saveUPCBtn').on('click', function(){
-    var newUPC = $('#newUPC').val().trim();
-    // Validate UPC:
-    // If a hyphen is present, require exactly 12 digits before it.
-    if (newUPC.indexOf('-') !== -1) {
-      if (!/^\d{12}-\d+$/.test(newUPC)) {
-        return;
-      }
-    } else {
-      if(newUPC.length > 14) {
-        return;
-      }
-    }
-    // Retrieve the Issue URL from the modal's data.
-    var issueUrl = $('#coverPopupModal').data('issueUrl');
-    if(!issueUrl){
-      return;
-    }
-    // Send the new UPC via AJAX to the backend.
-    $.ajax({
-      url: 'submit_upc.php',
-      method: 'POST',
-      data: { upc: newUPC, issue_url: issueUrl },
-      dataType: 'json',
-      success: function(response){
-        if(response.status === 'success'){
-          // Update the UPC display inline.
-          $('#popupUPC').text(newUPC);
-          // Hide the submission form and button.
-          $('#upcSubmissionRow').hide();
-          $('#submitUPCBtn').hide();
-        } else {
-          console.error('Error: ' + response.message);
-        }
-      },
-      error: function(){
-        console.error('An error occurred while submitting the UPC.');
-      }
-    });
+  $('#saveUPCBtn').click(function(){
+    const newUPC = $('#newUPC').val().trim();
+    if (newUPC.includes('-') ? !/^\d{12}-\d+$/.test(newUPC) : newUPC.length>14) return;
+    const issueUrl = $('#coverPopupModal').data('issueUrl');
+    if (!issueUrl) return;
+    $.post('submit_upc.php',{upc:newUPC,issue_url:issueUrl},resp=>{
+      if(resp.status==='success'){
+        $('#popupUPC').text(newUPC);
+        $('#upcSubmissionRow, #submitUPCBtn').hide();
+      } else console.error(resp.message);
+    },'json').fail(()=>console.error('UPC submit error'));
   });
 });
 </script>

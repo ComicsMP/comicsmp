@@ -284,6 +284,34 @@ if (!isset($_SESSION['user_id'])) {
       });
   });
 
+function initBuySellFilter() {
+  const buyCheckbox = document.getElementById('buyCheckbox');
+  const sellCheckbox = document.getElementById('sellCheckbox');
+
+  if (!buyCheckbox || !sellCheckbox) return;
+
+  function filterTestRows() {
+    const showBuy = buyCheckbox.checked;
+    const showSell = sellCheckbox.checked;
+
+    document.querySelectorAll('.main-row').forEach(row => {
+      const type = row.getAttribute('data-type');
+      let show = false;
+
+      if (type === 'buy' && showBuy) show = true;
+      else if (type === 'sell' && showSell) show = true;
+      else if (type === 'buy_sell' && (showBuy || showSell)) show = true;
+
+      row.style.display = show ? '' : 'none';
+    });
+  }
+
+  buyCheckbox.addEventListener('change', filterTestRows);
+  sellCheckbox.addEventListener('change', filterTestRows);
+  filterTestRows();
+}
+
+
   // 🔧 Fix: Profile tab activation + cleanly remove it on tab switch
   document.addEventListener("DOMContentLoaded", function () {
     const profileLink = document.querySelector('a.dropdown-item[data-bs-target="#profile"]');

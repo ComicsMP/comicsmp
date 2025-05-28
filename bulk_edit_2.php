@@ -14,39 +14,42 @@ if ($conn->connect_error) {
 
 $msg = "";
 $groups = [];
-$search_field = "";
-$search_value = "";
+$search_fields = isset($_POST['search_field']) ? (array)$_POST['search_field'] : [];
+$search_values = isset($_POST['search_value']) ? (array)$_POST['search_value'] : [];
 
-// Handle search via dropdown and text box
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['search_value']) && isset($_POST['search_field'])) {
-    $search_field = $conn->real_escape_string($_POST['search_field']);
-    $search_value = $conn->real_escape_string(trim($_POST['search_value']));
-    
-    // Allowed fields for security – adjust as needed
+
+// Handle Search
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['search_field']) && isset($_POST['search_value'])) {
     $allowed_fields = ['Comic_Title', 'Issue_Number', 'Years', 'Volume', 'Country', 'Publisher_Name'];
-    if (!in_array($search_field, $allowed_fields)) {
-        die("Invalid search field.");
+    $where_clauses = [];
+
+    for ($i = 0; $i < count($search_fields); $i++) {
+        $field = $conn->real_escape_string($search_fields[$i]);
+        $value = $conn->real_escape_string(trim($search_values[$i]));
+        if (in_array($field, $allowed_fields) && $value !== '') {
+            $where_clauses[] = "$field LIKE '%$value%'";
+        }
     }
-    
-    // Search using a LIKE query (you can change to exact match if desired)
-    $sql = "SELECT id, Comic_Title, Issue_Number, Years, Volume, Country, Publisher_Name 
-            FROM comics 
-            WHERE $search_field LIKE '%$search_value%' 
-            ORDER BY Comic_Title, Issue_Number";
-    $result = $conn->query($sql);
-    if ($result && $result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            // Group results by Comic_Title
-            $groups[$row['Comic_Title']][] = $row;
+
+    if (!empty($where_clauses)) {
+        $where_sql = implode(" AND ", $where_clauses);
+        $sql = "SELECT id, Comic_Title, Issue_Number, Years, Volume, Country, Publisher_Name 
+                FROM comics 
+                WHERE $where_sql 
+                ORDER BY Comic_Title, Issue_Number";
+        $result = $conn->query($sql);
+        if ($result && $result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $groups[$row['Comic_Title']][] = $row;
+            }
         }
     }
 }
 
-// Handle Bulk Update if groups are selected
+// Handle Bulk Update
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset($_POST['new_value']) && isset($_POST['update_field'])) {
     $all_ids = [];
     foreach($_POST['group_ids'] as $group) {
-        // Each checkbox value is a comma‐separated string of IDs
         $ids = explode(",", $group);
         foreach($ids as $id) {
             $all_ids[] = intval($id);
@@ -56,12 +59,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset(
     $update_field = $conn->real_escape_string($_POST['update_field']);
     $new_value = $conn->real_escape_string($_POST['new_value']);
     
-    // Validate update field
     $allowed_fields = ['Comic_Title', 'Issue_Number', 'Years', 'Volume', 'Country', 'Publisher_Name'];
     if (!in_array($update_field, $allowed_fields)) {
         die("Invalid update field.");
     }
-    
+
     if (!empty($all_ids)) {
         $ids_str = implode(",", $all_ids);
         $sql_update = "UPDATE comics SET $update_field = '$new_value' WHERE id IN ($ids_str)";
@@ -83,13 +85,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset(
     th { background-color: #f4f4f4; }
     .bulk-btn { padding: 10px 15px; background-color: darkgreen; color: #fff; border: none; cursor: pointer; }
     .bulk-btn:hover { background-color: green; }
+    .pair-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .pair-row select, .pair-row input { padding: 6px; }
   </style>
   <script>
     function toggleAll(source) {
-      var checkboxes = document.getElementsByName('group_ids[]');
-      for (var i = 0; i < checkboxes.length; i++) {
-          checkboxes[i].checked = source.checked;
-      }
+      const checkboxes = document.getElementsByName('group_ids[]');
+      checkboxes.forEach(checkbox => checkbox.checked = source.checked);
+    }
+
+    function addSearchPair() {
+      const container = document.getElementById('search-pairs');
+      const pair = document.createElement('div');
+      pair.className = 'pair-row';
+      pair.innerHTML = `
+        <select name="search_field[]" required>
+          <option value="Comic_Title">Comic Title</option>
+          <option value="Issue_Number">Issue Number</option>
+          <option value="Years">Years</option>
+          <option value="Volume">Volume</option>
+          <option value="Country">Country</option>
+          <option value="Publisher_Name">Publisher Name</option>
+        </select>
+        <input type="text" name="search_value[]" required>
+        <button type="button" onclick="this.parentElement.remove()">Remove</button>
+      `;
+      container.appendChild(pair);
     }
   </script>
 </head>
@@ -97,24 +118,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset(
 
 <h2>Bulk Edit Comics</h2>
 
-<!-- Display update messages if any -->
 <?php if ($msg != "") { echo "<p><strong>$msg</strong></p>"; } ?>
 
-<!-- Search Form -->
 <h3>Search Comics</h3>
 <form method="POST">
-  <label for="search_field">Select Field:</label>
-  <select name="search_field" id="search_field" required>
-    <option value="Comic_Title" <?= ($search_field=='Comic_Title')?'selected':''; ?>>Comic Title</option>
-    <option value="Issue_Number" <?= ($search_field=='Issue_Number')?'selected':''; ?>>Issue Number</option>
-    <option value="Years" <?= ($search_field=='Years')?'selected':''; ?>>Years</option>
-    <option value="Volume" <?= ($search_field=='Volume')?'selected':''; ?>>Volume</option>
-    <option value="Country" <?= ($search_field=='Country')?'selected':''; ?>>Country</option>
-    <option value="Publisher_Name" <?= ($search_field=='Publisher_Name')?'selected':''; ?>>Publisher Name</option>
-  </select>
-  <br><br>
-  <label for="search_value">Enter Search Value:</label>
-  <input type="text" name="search_value" id="search_value" value="<?= htmlspecialchars($search_value) ?>" required>
+  <div id="search-pairs">
+    <?php
+    if (!empty($search_fields) && is_array($search_fields)) {
+        for ($i = 0; $i < count($search_fields); $i++) {
+            echo '<div class="pair-row">';
+            echo '<select name="search_field[]" required>';
+            foreach (['Comic_Title', 'Issue_Number', 'Years', 'Volume', 'Country', 'Publisher_Name'] as $field) {
+                $selected = ($field == $search_fields[$i]) ? 'selected' : '';
+                echo "<option value=\"$field\" $selected>$field</option>";
+            }
+            echo '</select>';
+            $value = htmlspecialchars($search_values[$i]);
+            echo "<input type=\"text\" name=\"search_value[]\" value=\"$value\" required>";
+            echo '<button type="button" onclick="this.parentElement.remove()">Remove</button>';
+            echo '</div>';
+        }
+    } else {
+        echo '<div class="pair-row">
+          <select name="search_field[]" required>
+            <option value="Comic_Title">Comic Title</option>
+            <option value="Issue_Number">Issue Number</option>
+            <option value="Years">Years</option>
+            <option value="Volume">Volume</option>
+            <option value="Country">Country</option>
+            <option value="Publisher_Name">Publisher Name</option>
+          </select>
+          <input type="text" name="search_value[]" required>
+          <button type="button" onclick="this.parentElement.remove()">Remove</button>
+        </div>';
+    }
+    ?>
+  </div>
+  <button type="button" onclick="addSearchPair()">+ Add More Fields</button>
   <br><br>
   <button type="submit" class="bulk-btn">Search</button>
 </form>
@@ -122,9 +162,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset(
 <?php if (!empty($groups)) { ?>
   <h3>Search Results</h3>
   <form method="POST">
-    <!-- Preserve search criteria -->
-    <input type="hidden" name="search_field" value="<?= htmlspecialchars($search_field) ?>">
-    <input type="hidden" name="search_value" value="<?= htmlspecialchars($search_value) ?>">
+    <?php
+    foreach ($search_fields as $i => $field) {
+        echo '<input type="hidden" name="search_field[]" value="' . htmlspecialchars($field) . '">';
+        echo '<input type="hidden" name="search_value[]" value="' . htmlspecialchars($search_values[$i]) . '">';
+    }
+    ?>
     <table>
       <tr>
         <th><input type="checkbox" onclick="toggleAll(this)"></th>
@@ -134,7 +177,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset(
       </tr>
       <?php 
       foreach ($groups as $comic_title => $issues) { 
-          // Build a comma-separated string of IDs and a summary of issues
           $ids = array();
           $issueSummary = array();
           foreach ($issues as $issue) {
@@ -170,8 +212,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['group_ids']) && isset(
     </p>
     <button type="submit" class="bulk-btn">Update Selected Groups</button>
   </form>
-<?php } else if(isset($_POST['search_value'])) { ?>
-  <p>No records found for <?= htmlspecialchars($search_field) ?> matching "<?= htmlspecialchars($search_value) ?>"</p>
+<?php } elseif ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['search_field'])) { ?>
+  <p>No records found for search criteria.</p>
 <?php } ?>
 
 </body>

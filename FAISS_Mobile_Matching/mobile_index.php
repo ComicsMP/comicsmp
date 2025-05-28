@@ -263,7 +263,7 @@
     let imageFiles = []; // Array of File objects
     let matches = [];
     let listingIndex = 0;
-    const serverBaseURL = "http://192.168.86.46:5000"; // Ensure this is correct
+    const serverBaseURL = "http://192.168.86.68:5000";  // Ensure this is correct
 
     const totalSteps = 4;
 
@@ -463,8 +463,8 @@
   let headerText = "Cover " + (matchIndex + 1) + " of " + imageFiles.length;
   let html = `
     <div class="comic-result single-candidate">
-      <img class="full-width-image" src="http://192.168.86.46/comicsmp/${imageUrl}" alt="Candidate Cover"
-           onerror="this.onerror=null;this.src='http://192.168.86.46/comicsmp/images/placeholder.jpg';" />
+      <img class="full-width-image" src="http://192.168.86.68/comicsmp/${imageUrl}" alt="Candidate Cover"
+           onerror="this.onerror=null;this.src='http://192.168.86.68/comicsmp/images/placeholder.jpg';" />
       <div class="single-info">
         <div class="issue-row">Issue: ${candidate.Issue_Number ? candidate.Issue_Number : "N/A"}</div>
         <div class="country-row">Country: ${candidate.Country ? candidate.Country : "Not Specified"}</div>
@@ -492,8 +492,8 @@
                        : ("images/" + candidate.Unique_ID);
         html += `
           <div class="candidate">
-            <img src="http://192.168.86.46/comicsmp/${imageUrl}" alt="Candidate Cover"
-                 onerror="this.onerror=null;this.src='http://192.168.86.46/comicsmp/images/placeholder.jpg';" />
+            <img src="http://192.168.86.68/comicsmp/${imageUrl}" alt="Candidate Cover"
+                 onerror="this.onerror=null;this.src='http://192.168.86.68/comicsmp/images/placeholder.jpg';" />
             <div class="candidate-info">
               <div class="issue-row">Issue: ${candidate.Issue_Number ? candidate.Issue_Number : "N/A"}</div>
               <div class="country-row">Country: ${candidate.Country ? candidate.Country : "Not Specified"}</div>
@@ -555,9 +555,9 @@
       let html = `
           <div class="listing-cover">
             <img class="full-width-image" 
-                 src="http://192.168.86.46/comicsmp/${imageUrl}" 
+                 src="http://192.168.86.68/comicsmp/${imageUrl}" 
                  alt="Comic Cover"
-                 onerror="this.onerror=null;this.src='http://192.168.86.46/comicsmp/images/placeholder.jpg';" />
+                 onerror="this.onerror=null;this.src='http://192.168.86.68/comicsmp/images/placeholder.jpg';" />
           </div>
           <div class="unified-form">
             <!-- Hidden input required for submit -->
@@ -689,8 +689,8 @@
                          ? candidate.Image_Path.replace("FAISS/images/", "images/") 
                          : ("images/" + candidate.Unique_ID);
           html += `<div class="unified-preview" style="display:inline-block; width:45%; margin:5px;">
-                     <img src="http://192.168.86.46/comicsmp/${imageUrl}" style="width:100%;" 
-                          onerror="this.onerror=null;this.src='http://192.168.86.46/comicsmp/images/placeholder.jpg';" />
+                     <img src="http://192.168.86.68/comicsmp/${imageUrl}" style="width:100%;" 
+                          onerror="this.onerror=null;this.src='http://192.168.86.68/comicsmp/images/placeholder.jpg';" />
                    </div>`;
         }
       });

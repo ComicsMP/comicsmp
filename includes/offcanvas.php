@@ -112,11 +112,11 @@ if ($user_id) {
         <div class="card-header fw-bold">Search by UPC</div>
         <div class="card-body">
           <div class="mb-3">
-            <label for="upcSearch" class="form-label fw-bold">UPC Code</label>
+            
             <input type="text"
                    id="upcSearch"
                    class="form-control"
-                   placeholder="Enter UPC (e.g. 759606209088-00311)">
+                   placeholder="e.g., 759606209088-00311 (w/wo dash)">
           </div>
         </div>
       </div>

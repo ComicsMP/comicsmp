@@ -80,12 +80,21 @@ $stmt->close();
     
     /* Top Header */
     .top-header {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #1a1a1a; padding: 10px 15px; color: #fff;
-    }
-    .top-header .logo img { height: 40px; }
-    .top-header .icons { display: flex; gap: 15px; }
-    .top-header .icons a { color: #fff; font-size: 16px; }
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #000;
+    padding: 12px 16px;
+    color: #fff;
+  }
+  .top-header .logo img {
+    height: 38px;
+  }
+  .top-header .icons a {
+    color: #fff;
+    font-size: 20px;
+    margin-left: 12px;
+  }
     
     /* Header Row */
     .header-row {
@@ -112,12 +121,30 @@ $stmt->close();
     /* Action Buttons for Group Edit/Delete */
     .card .actions { margin-top: 8px; display: flex; gap: 8px; }
     .card .actions button {
-      font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer;
-    }
-    .card .actions .edit-btn { background: #007BFF; color: #fff; }
-    .card .actions .delete-btn { background: #D32F2F; color: #fff; }
-    /* Added Expand Button Style */
-    .card .actions .expand-btn { background: #28A745; color: #fff; }
+  font-size: 12px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: all 0.2s ease-in-out;
+  font-weight: 500;
+}
+
+.card .actions .delete-btn {
+  background: #f67280;
+  color: #fff;
+}
+
+.card .actions .expand-btn {
+  background: #355c7d;
+  color: #fff;
+}
+
+.card .actions button:hover {
+  filter: brightness(1.1);
+}
+
     
     /* Expandable Content for Covers */
     .expandable-content { display: none; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px; }
@@ -159,17 +186,29 @@ $stmt->close();
     .list-view th { background: #575757; color: #fff; }
     
     /* Bottom Navigation Bar */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: #575757; box-shadow: 0 -2px 4px rgba(0,0,0,0.3);
-      display: flex; justify-content: space-around; padding: 10px 0; font-size: 12px;
-    }
-    .bottom-nav a {
-      color: #fff; text-align: center; flex: 1; padding: 6px 0;
-      transition: background 0.3s, transform 0.3s;
-    }
-    .bottom-nav a:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
-    .bottom-nav a.active { background: rgba(255,255,255,0.3); border-radius: 8px; }
+     .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #000;
+    display: flex;
+    justify-content: space-around;
+    padding: 6px 0;       /* reduced vertical padding */
+    font-size: 12px;      /* smaller label text */
+    color: #fff;
+  }
+  .bottom-nav a {
+    flex: 1;
+    text-align: center;
+    padding: 4px 0;       /* you can tweak this too */
+    color: #fff;
+  }
+  .bottom-nav a i {
+    display: block;
+    font-size: 18px;      /* smaller icon */
+    margin-bottom: 0;     /* remove extra gap */
+  }
     
     /* Modal Overlay for Cover Details (Popup with Swiper) */
     .cover-modal {
@@ -698,16 +737,7 @@ $stmt->close();
   </script>
 </head>
 <body>
-  <!-- Top Header with Logo and Icons -->
-  <div class="top-header">
-    <div class="logo">
-      <img src="../logo.png" alt="Logo">
-    </div>
-    <div class="icons">
-      <a href="inbox.php">Inbox</a>
-      <a href="settings.php">Profile</a>
-    </div>
-  </div>
+  
   
   <!-- Header Row with Toggle Icons -->
   <div class="header-row">
@@ -780,11 +810,23 @@ $stmt->close();
   
   <!-- Bottom Navigation Bar -->
   <div class="bottom-nav">
-    <a href="dashboard.php">Home</a>
-    <a href="wanted.php">Wanted</a>
-    <a class="active" href="selling.php">Selling</a>
-    <a href="matches.php">Matches</a>
-  </div>
+  <a href="dashboard.php">
+    <i class="bi bi-house-fill"></i>
+    Home
+  </a>
+  <a href="wanted.php">
+    <i class="bi bi-heart-fill"></i>
+    Wanted
+  </a>
+  <a href="selling.php">
+    <i class="bi bi-tag-fill"></i>
+    Selling
+  </a>
+  <a href="matches.php">
+    <i class="bi bi-people-fill"></i>
+    Matches
+  </a>
+</div>
   
   <!-- Shadow DOM Container for Isolated Bootstrap Bulk Edit Modal -->
   <div id="bulkEditShadowContainer"></div>

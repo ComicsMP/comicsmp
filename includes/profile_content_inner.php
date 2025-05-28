@@ -62,7 +62,8 @@ $currencies = [
     "SGD","HKD","NOK","SEK","NZD","KRW","BRL","ZAR","RUB","THB"
 ];
 $transaction_methods = ["Shipping", "Pickup", "Meetup"];
-$payment_methods = ["Cash", "E-Transfer", "PayPal"];
+$payment_methods = ["Cash", "E-Transfer", "PayPal", "Trade"];
+
 
 // Handle profile updates if form submitted via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -171,10 +172,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mkdir($target_dir, 0777, true);
         }
         $fileName   = basename($_FILES["profile_picture"]["name"]);
-        $target_file = $target_dir . $user_id . "_" . time() . "_" . $fileName;
+        $public_path = 'uploads/profile_pictures/' . $user_id . "_" . time() . "_" . $fileName;
+$target_file = __DIR__ . '/../' . $public_path;
+
         if (move_uploaded_file($_FILES["profile_picture"]["tmp_name"], $target_file)) {
             $stmt = $conn->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
-            $stmt->bind_param("si", $target_file, $user_id);
+            $stmt->bind_param("si", $public_path, $user_id);
+
             $stmt->execute();
             $user['profile_picture'] = $target_file;
             $_SESSION['flash_success'] = "Profile picture updated.";

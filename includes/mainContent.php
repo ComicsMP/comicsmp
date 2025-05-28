@@ -182,6 +182,23 @@ if (!function_exists('fixImagePath')) {
       </div>
     </div>
 
+
+<!-- UPC Result Modal -->
+<div class="modal fade" id="upcResultModal" tabindex="-1" aria-labelledby="upcResultModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="upcResultModalLabel">Comic Found</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" id="upcModalBody">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+</div>
+
+
     <!-- BULK EDIT MODAL (Unique IDs) -->
     <div class="modal fade" id="bulkEditModalDashboard" tabindex="-1" aria-labelledby="bulkEditModalLabelDashboard" aria-hidden="true">
       <div class="modal-dialog">
@@ -313,16 +330,45 @@ $(document).ready(function(){
 
 <!-- Load Matches Fragment via AJAX when the Matches tab is activated -->
 <script>
-$(document).ready(function(){
-  $('a.nav-link[href="#matches"]').on('shown.bs.tab', function(e) {
-    $("#matchesFragment").load("includes/matches.php #matchesContainer", function(response, status, xhr) {
-      if(status === "error"){
-         $("#matchesFragment").html("<p>Error loading matches: " + xhr.status + " " + xhr.statusText + "</p>");
+$(document).ready(function () {
+  $('a.nav-link[href="#matches"]').on('shown.bs.tab', function (e) {
+    $("#matchesFragment").load("includes/matches.php #matchesContainer", function (response, status, xhr) {
+      if (status === "error") {
+        $("#matchesFragment").html("<p>Error loading matches: " + xhr.status + " " + xhr.statusText + "</p>");
       } else {
-         if(typeof initMatchesFiltering === 'function'){
-            initMatchesFiltering();
-         }
-         console.log("Matches fragment loaded and events bound");
+        // 🔧 Initialize Buy/Sell checkbox filters after AJAX content loads
+        function initMatchesFiltering() {
+          const buyCheckbox = document.getElementById('buyCheckbox');
+          const sellCheckbox = document.getElementById('sellCheckbox');
+
+          if (!buyCheckbox || !sellCheckbox) {
+            console.warn("Buy/Sell checkboxes not found.");
+            return;
+          }
+
+          function filterTestRows() {
+            const showBuy = buyCheckbox.checked;
+            const showSell = sellCheckbox.checked;
+
+            document.querySelectorAll('.main-row').forEach(row => {
+              const type = row.getAttribute('data-type');
+              let show = false;
+
+              if (type === 'buy' && showBuy) show = true;
+              else if (type === 'sell' && showSell) show = true;
+              else if (type === 'buy_sell' && (showBuy || showSell)) show = true;
+
+              row.style.display = show ? '' : 'none';
+            });
+          }
+
+          buyCheckbox.addEventListener('change', filterTestRows);
+          sellCheckbox.addEventListener('change', filterTestRows);
+          filterTestRows();
+        }
+
+        initMatchesFiltering(); // ✅ Run immediately after matches load
+        console.log("Matches fragment loaded and filter initialized.");
       }
     });
   });
@@ -400,5 +446,174 @@ function updateDefaultText(form) {
   defaultMessage += "Please let me know if you are interested.\n\nThank you.";
   messageField.val(defaultMessage);
 }
+$(document).ready(function() {
+  // --- UPC search handler ---
+  $("#upcSearch").on("change", function() {
+    const upc = $(this).val().trim();
+    if (!upc) return;
+
+    $.get("getComicByUPC.php", { upc: upc }, function(data) {
+      const upcModalEl = document.getElementById('upcResultModal');
+      const upcModal   = bootstrap.Modal.getOrCreateInstance(upcModalEl);
+
+      if (data.success) {
+        // Clean image path
+        let rawPath = data.image_path;
+        let imgSrc = (rawPath.startsWith('http') || rawPath.startsWith('/comicsmp/'))
+          ? rawPath
+          : '/comicsmp/' + rawPath.replace(/^\/?/, '');
+
+        // Clean issue number
+        let issueNumber = (data.issue_number || '').replace(/^#+/, '#');
+
+        // Build Wanted/Add button based on is_wanted
+        const wantedBtn = data.is_wanted
+          ? `<button class="btn btn-secondary" disabled>Added</button>`
+          : `<button class="btn btn-primary add-to-wanted"
+                      data-comic-id="${data.ID}"
+                      data-series-name="${data.comic_title}"
+                      data-issue-number="${issueNumber}"
+                      data-series-year="${data.years}"
+                      data-issue-url="${data.issue_url}">
+               Wanted
+             </button>`;
+
+        // Build full modal content
+        const content = `
+          <a href="${imgSrc}" target="_blank" rel="noopener noreferrer" data-bs-toggle="tooltip" title="Click to view full-size">
+            <img src="${imgSrc}" class="img-fluid mb-3"
+                 style="max-height:380px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.25); cursor: zoom-in;">
+          </a>
+          <p><strong>${data.comic_title}</strong></p>
+          <p>Issue: ${issueNumber}</p>
+          <p>Year: ${data.years || 'N/A'}</p>
+          <div class="d-flex justify-content-center gap-2 mt-3">
+            ${wantedBtn}
+            <button class="btn btn-secondary sell-button"
+                    data-series-name="${data.comic_title}"
+                    data-issue-number="${issueNumber}"
+                    data-series-year="${data.years}"
+                    data-issue-url="${data.issue_url}">
+              Sell
+            </button>
+          </div>
+        `;
+
+        $("#upcModalBody").html(content);
+        upcModal.show();
+        $('body').tooltip({ selector: '[data-bs-toggle="tooltip"]' });
+
+      } else {
+        $("#upcModalBody").html(`<p class="text-danger">${data.message}</p>`);
+        upcModal.show();
+      }
+    }).fail(function() {
+      $("#upcModalBody").html("<p class='text-danger'>Error contacting server.</p>");
+      const upcModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('upcResultModal'));
+      upcModal.show();
+    });
+  });
+
+  // Enter key triggers UPC search
+  $("#upcSearch").on("keypress", function(e) {
+    if (e.which === 13) {
+      e.preventDefault();
+      $(this).trigger("change");
+    }
+  });
+
+  // Cleanup backdrop on close
+  $("#upcResultModal").on('hidden.bs.modal', function () {
+    $("body").removeClass("modal-open");
+    $(".modal-backdrop").remove();
+  });
+});
+
+// --- Sell button handler ---
+$(document).on("click", ".sell-button", function () {
+  const upcModalEl = document.getElementById("upcResultModal");
+  bootstrap.Modal.getInstance(upcModalEl).hide();
+
+  const btn          = $(this);
+  const comicTitle   = btn.data("series-name")   || "";
+  const issueNumber  = btn.data("issue-number") || "";
+  const years        = btn.data("series-year")  || "";
+  const issueUrl     = btn.data("issue-url")    || "";
+
+  const $form = $("#editSaleFormDashboard");
+  $form[0].reset();
+  $form.find("input[name='listing_id']").val("");
+  $form.find("input[name='comic_title'], input[name='issue_number'], input[name='years'], input[name='issue_url'], select[name='graded']").remove();
+
+  $form.append(`
+    <input type="hidden" name="comic_title"  value="${comicTitle}">
+    <input type="hidden" name="issue_number" value="${issueNumber}">
+    <input type="hidden" name="years"        value="${years}">
+    <input type="hidden" name="issue_url"    value="${issueUrl}">
+  `);
+
+  if (!$form.find("select[name='graded']").length) {
+    $form.find(".modal-body").append(`
+      <div class="mb-3" id="gradedDropdownField">
+        <label for="graded" class="form-label">Graded</label>
+        <select name="graded" class="form-select" required>
+          <option value="">Select...</option>
+          <option value="1">Yes (Graded)</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    `);
+  }
+
+  new bootstrap.Modal(document.getElementById("editSaleModalDashboard")).show();
+});
+
+// --- Add to wanted handler ---
+$(document).on("click", ".add-to-wanted", function() {
+  const btn = $(this);
+  const payload = {
+    comic_title:   btn.data("series-name"),  // ✅ fixed key
+    issue_number:  btn.data("issue-number"),
+    years:         btn.data("series-year"),  // ✅ fixed key
+    issue_url:     btn.data("issue-url")
+  };
+
+  $.post("addToWanted.php", payload, function(resp) {
+    if (resp.success || resp === "Added" || resp.status === "success") {
+      btn
+        .text("Added")
+        .removeClass("btn-primary")
+        .addClass("btn-secondary")
+        .prop("disabled", true);
+    } else if (resp.status === "duplicate" || resp === "Already added") {
+      btn
+        .text("Added")
+        .removeClass("btn-primary")
+        .addClass("btn-secondary")
+        .prop("disabled", true);
+    } else {
+      alert(resp.message || "Couldn’t add to wanted list.");
+    }
+  }, "json").fail(function(xhr) {
+    alert("Server error while adding to wanted.\n\n" + xhr.responseText);
+  });
+});
+
+// --- Sale form submission handler ---
+$(document).on("submit", "#editSaleFormDashboard", function (e) {
+  e.preventDefault();
+  const formData = $(this).serialize();
+
+  $.post("addListing.php", formData, function (response) {
+    if (response.status === "success") {
+      alert("Comic listed for sale!");
+      bootstrap.Modal.getInstance(document.getElementById("editSaleModalDashboard")).hide();
+    } else {
+      alert(response.message || "Listing failed.");
+    }
+  }, "json").fail(function () {
+    alert("Server error while adding the listing.");
+  });
+});
 </script>
 

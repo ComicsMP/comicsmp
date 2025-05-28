@@ -32,6 +32,8 @@ if (!function_exists('getFinalImagePathV2')) {
     }
 }
 
+
+
 // -------------------- Retrieve Stats --------------------
 
 // Wanted Items
@@ -174,6 +176,10 @@ $stmt->close();
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mobile Dashboard</title>
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+  >
   <style>
     /* Basic Reset */
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -182,24 +188,21 @@ $stmt->close();
     
     /* Top Header with Logo & Icons */
     .top-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #1a1a1a;
-      padding: 10px 15px;
-      color: #fff;
-    }
-    .top-header .logo img {
-      height: 40px;
-    }
-    .top-header .icons {
-      display: flex;
-      gap: 15px;
-    }
-    .top-header .icons a {
-      color: #fff;
-      font-size: 16px;
-    }
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #000;
+    padding: 12px 16px;
+    color: #fff;
+  }
+  .top-header .logo img {
+    height: 38px;
+  }
+  .top-header .icons a {
+    color: #fff;
+    font-size: 20px;
+    margin-left: 12px;
+  }
     
     /* Top Section - Two Column Grid for Stats */
     .top-section {
@@ -236,22 +239,27 @@ $stmt->close();
       flex-direction: column;
       justify-content: space-between;
     }
-    .right-column .matches-header { 
-      font-size: 26px; 
-      margin-bottom: 5px; 
-      color: #fff;
-      padding: 5px;
-      border-radius: 4px;
-    }
+    .right-column .matches-header {
+  font-size: 26px;
+  margin-bottom: 8px;  /* reduced from 5px */
+  padding: 0;
+  color: #fff;
+  border-radius: 4px;
+  line-height: 1;
+}
+
     .right-column .matches-number {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: <?php echo $matchesFontSize; ?>;
-      margin: 5px 0;
-    }
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-weight: bold;
+  font-size: <?php echo $matchesFontSize; ?>;
+  margin: 0;
+  line-height: 1;
+  color: #ffffff;  /* added this line */
+}
+
     .right-column .stats-detail {
       font-size: 12px;
       color: #fff;
@@ -287,30 +295,29 @@ $stmt->close();
     }
     
     /* Bottom Navigation Bar */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: #575757;
-      box-shadow: 0 -2px 4px rgba(0,0,0,0.3);
-      display: flex;
-      justify-content: space-around;
-      padding: 10px 0;
-      font-size: 12px;
-    }
-    .bottom-nav a {
-      color: #fff;
-      text-align: center;
-      flex: 1;
-      text-decoration: none;
-      padding: 6px 0;
-      transition: background 0.3s, transform 0.3s;
-    }
-    .bottom-nav a:hover {
-      background: rgba(255,255,255,0.2);
-      transform: scale(1.05);
-    }
+      .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #000;
+    display: flex;
+    justify-content: space-around;
+    padding: 6px 0;       /* reduced vertical padding */
+    font-size: 12px;      /* smaller label text */
+    color: #fff;
+  }
+  .bottom-nav a {
+    flex: 1;
+    text-align: center;
+    padding: 4px 0;       /* you can tweak this too */
+    color: #fff;
+  }
+  .bottom-nav a i {
+    display: block;
+    font-size: 18px;      /* smaller icon */
+    margin-bottom: 0;     /* remove extra gap */
+  }
   </style>
 </head>
 <body>
@@ -319,11 +326,11 @@ $stmt->close();
     <div class="logo">
       <img src="../logo.png" alt="Logo">
     </div>
-    <div class="icons">
-      <a href="inbox.php">Inbox</a>
-      <a href="settings.php">Profile</a>
-    </div>
+  <div class="icons">
+    <a href="inbox.php" title="Inbox"><i class="bi bi-envelope-fill"></i></a>
+    <a href="settings.php" title="Profile"><i class="bi bi-gear-fill"></i></a>
   </div>
+</div>
   
   <!-- Top Section: Two Columns -->
   <div class="top-section">
@@ -413,11 +420,23 @@ $stmt->close();
   
   <!-- Bottom Navigation Bar (4 Items) -->
   <div class="bottom-nav">
-    <a href="dashboard.php">Home</a>
-    <a href="wanted.php">Wanted</a>
-    <a href="selling.php">For Sale</a>
-    <a href="matches.php">Matches</a>
-  </div>
+  <a href="dashboard.php">
+    <i class="bi bi-house-fill"></i>
+    Home
+  </a>
+  <a href="wanted.php">
+    <i class="bi bi-heart-fill"></i>
+    Wanted
+  </a>
+  <a href="selling.php">
+    <i class="bi bi-tag-fill"></i>
+    Selling
+  </a>
+  <a href="matches.php">
+    <i class="bi bi-people-fill"></i>
+    Matches
+  </a>
+</div>
   
   <!-- JavaScript to auto-reduce font size for matches stats if needed -->
   <script>

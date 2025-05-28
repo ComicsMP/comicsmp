@@ -279,17 +279,16 @@ if (!$currency) {
 </div>
 
 <!-- Lightbox Modal for Attachments -->
-<div id="imageLightbox" class="modal" tabindex="-1" style="display:none;">
+<div id="imageLightbox" class="modal fade" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <span class="btn-close position-absolute top-0 end-0 m-3" onclick="closeLightbox()"></span>
+    <div class="modal-content position-relative">
+      <button type="button" class="custom-lightbox-close" data-bs-dismiss="modal" aria-label="Close">×</button>
       <img class="img-fluid" id="lightboxImg" alt="Attachment">
       <button class="btn btn-secondary position-absolute start-0 top-50 translate-middle-y" onclick="changeImage(-1)">&#10094;</button>
       <button class="btn btn-secondary position-absolute end-0 top-50 translate-middle-y" onclick="changeImage(1)">&#10095;</button>
     </div>
   </div>
 </div>
-
 <!-- Required JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -448,14 +447,15 @@ if (!$currency) {
   let imagesArray = [];
   let currentIndex = 0;
   function openLightbox(index, attachmentsArray) {
-    imagesArray = attachmentsArray;
-    currentIndex = index;
-    document.getElementById("lightboxImg").src = "uploads/" + imagesArray[currentIndex];
-    $("#imageLightbox").show();
-  }
-  function closeLightbox() {
-    $("#imageLightbox").hide();
-  }
+  imagesArray = attachmentsArray;
+  currentIndex = index;
+  document.getElementById("lightboxImg").src = "uploads/" + imagesArray[currentIndex];
+
+  const modal = new bootstrap.Modal(document.getElementById('imageLightbox'));
+  modal.show();
+}
+
+  
   function changeImage(direction) {
     currentIndex += direction;
     if (currentIndex < 0) {

@@ -6,55 +6,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
-    body {
-      background-color: black;
-      color: white;
-      text-align: center;
-      font-family: Arial, sans-serif;
-    }
-    #scanner-container {
-      position: relative;
-      width: 100%;
-      max-width: 500px;
-      margin: auto;
-    }
-    #video {
-      width: 100%;
-      border: 1px solid #ddd;
-    }
-    /* Barcode guide overlay */
+    body { background-color: black; color: white; text-align: center; font-family: Arial, sans-serif; }
+    #scanner-container { position: relative; width: 100%; max-width: 500px; margin: auto; }
+    #video { width: 100%; border: 1px solid #ddd; }
     .barcode-guide {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 60%;
-      height: 20%;
-      max-width: 300px;
-      max-height: 100px;
-      transform: translate(-50%, -50%);
-      border: 3px dashed #ff0000;
+      position: absolute; top: 50%; left: 50%;
+      width: 60%; height: 20%; max-width: 300px; max-height: 100px;
+      transform: translate(-50%, -50%); border: 3px dashed #ff0000;
       pointer-events: none;
     }
-    #result {
-      margin-top: 20px;
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #007bff;
-    }
-    .btn-custom {
-      width: 90%;
-      max-width: 500px;
-      margin: 10px auto;
-      font-size: 1.2rem;
-      padding: 10px;
-    }
+    #result { margin-top: 20px; font-size: 1.3rem; font-weight: bold; color: #007bff; }
+    .btn-custom { width: 90%; max-width: 500px; margin: 10px auto; font-size: 1.2rem; padding: 10px; }
   </style>
 </head>
 <body>
   <div class="container mt-3">
     <h2 class="text-center">Live UPC + EAN-5 Scanner</h2>
     <div id="scanner-container">
-      <video id="video" autoplay playsinline></video>
+      <video id="video" autoplay playsinline muted></video>
       <div class="barcode-guide"></div>
     </div>
     <div id="result" class="alert alert-info mt-3">
@@ -63,146 +32,112 @@
     <button id="restartScan" class="btn btn-warning btn-custom" style="display:none;">Restart Scan</button>
   </div>
 
-  <!-- Include ZXing library -->
+  <!-- ZXing Library -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
-    window.addEventListener('load', function () {
-      const codeReader = new ZXing.BrowserMultiFormatReader();
-      const videoElement = document.getElementById('video');
-      const resultElement = document.getElementById('result');
-      const restartBtn = document.getElementById('restartScan');
-      let selectedDeviceId;
-      let scanQueue = [];
-      let processing = false;
+  window.addEventListener('load', () => {
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    const video = document.getElementById('video');
+    const resultEl = document.getElementById('result');
+    const restartBtn = document.getElementById('restartScan');
 
-      // Variables for multi-frame confirmation
-      let stableUPC = "";
-      let upcCount = 0;
-      const MIN_CONSECUTIVE_DETECTIONS = 3; // Number of consecutive detections required
+    let scanQueue = [], processing = false;
+    let stableUPC = "", upcCount = 0;
+    const MIN_DETECTIONS = 3;
 
-      // List video input devices and choose the last one (often the back camera)
-      codeReader.listVideoInputDevices()
-        .then((videoInputDevices) => {
-          if (videoInputDevices.length > 0) {
-            selectedDeviceId = videoInputDevices[videoInputDevices.length - 1].deviceId;
-            startScanner();
-          }
-        })
-        .catch((err) => {
-          console.error(err);
-          resultElement.innerHTML = "Error listing video devices: " + err;
-        });
+    // 1. Acquire camera stream yourself
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.onloadedmetadata = () => video.play();
+        startDecoding();
+      })
+      .catch(err => {
+        console.error('getUserMedia error:', err);
+        resultEl.innerHTML = `❌ Camera access error: ${err.name} — ${err.message}`;
+      });
 
-      function startScanner() {
-        // Set hints to only look for UPC_A and EAN_5
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-          ZXing.BarcodeFormat.UPC_A,
-          ZXing.BarcodeFormat.EAN_5
-        ]);
-        codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+    // 2. Hand the <video> element to ZXing continuously
+    function startDecoding() {
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.EAN_5
+      ]);
+
+      codeReader.decodeFromVideoElementContinuously(
+        video,
+        (result, error) => {
           if (result) {
             scanQueue.push(result);
             processQueue();
-          } else if (err && !(err instanceof ZXing.NotFoundException)) {
-            console.error(err);
-            resultElement.innerHTML = "Error: " + err;
+          } else if (error && !(error instanceof ZXing.NotFoundException)) {
+            console.error('ZXing decode error:', error);
           }
-        }, hints);
-      }
+        },
+        hints
+      );
+    }
 
-      function processQueue() {
-        if (processing || scanQueue.length === 0) return;
-        processing = true;
-        let upc = null;
-        let supplemental = null;
-        let processedIndices = [];
-        // Process the queue for UPC_A and EAN_5 codes.
-        for (let i = 0; i < scanQueue.length; i++) {
-          const result = scanQueue[i];
-          if (result.format === ZXing.BarcodeFormat.UPC_A && !upc) {
-            upc = result.text;
-            processedIndices.push(i);
-          } else if (result.format === ZXing.BarcodeFormat.EAN_5 && !supplemental) {
-            supplemental = result.text;
-            processedIndices.push(i);
-          }
-        }
-        // Remove processed items
-        processedIndices.sort((a, b) => b - a);
-        processedIndices.forEach(index => scanQueue.splice(index, 1));
+    function processQueue() {
+      if (processing || !scanQueue.length) return;
+      processing = true;
 
-        // Multi-frame confirmation for UPC detection
-        if (upc) {
-          if (stableUPC === upc) {
-            upcCount++;
-          } else {
-            stableUPC = upc;
-            upcCount = 1;
-          }
-          // Only proceed if we have the required number of consecutive detections
-          if (upcCount >= MIN_CONSECUTIVE_DETECTIONS) {
-            resultElement.innerHTML = "<strong>Barcode Found:</strong> " + upc + (supplemental ? " - " + supplemental : "");
-            // Introduce a 500ms delay before capturing & sending to server
-            setTimeout(() => {
-              captureSnapshotAndSend();
-              codeReader.reset();
-              scanQueue = [];
-              restartBtn.style.display = "block";
-              // Reset stable detection variables for future scans
-              stableUPC = "";
-              upcCount = 0;
-            }, 500);
-          }
-        }
-        processing = false;
-        if (scanQueue.length > 0) {
-          processQueue();
+      let upc = null, sup = null, idxs = [];
+      scanQueue.forEach((r, i) => {
+        if (r.format === ZXing.BarcodeFormat.UPC_A && !upc) { upc = r.text; idxs.push(i); }
+        if (r.format === ZXing.BarcodeFormat.EAN_5 && !sup) { sup = r.text; idxs.push(i); }
+      });
+      idxs.sort((a,b)=>b-a).forEach(i=>scanQueue.splice(i,1));
+
+      if (upc) {
+        if (stableUPC === upc) upcCount++;
+        else { stableUPC = upc; upcCount = 1; }
+        if (upcCount >= MIN_DETECTIONS) {
+          resultEl.innerHTML = `<strong>Barcode Found:</strong> ${upc}${sup? ' - '+sup: ''}`;
+          // pause decoding, snapshot & send
+          codeReader.reset();
+          scanQueue = [];
+          setTimeout(captureAndSend, 500);
+          restartBtn.style.display = 'block';
         }
       }
 
-      function captureSnapshotAndSend() {
-        // Create a temporary canvas to capture the current frame.
-        const canvas = document.createElement("canvas");
-        canvas.width = videoElement.videoWidth;
-        canvas.height = videoElement.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(function(blob) {
-          const formData = new FormData();
-          formData.append('image', blob, 'barcode.jpg');
-          fetch('http://192.168.86.46:5000/scan', {
-            method: 'POST',
-            body: formData
-          })
-          .then(response => response.json())
-          .then(data => {
-            console.log("Server Response:", data);
-            // Display barcode and comic details
-            resultElement.innerHTML = `
-              <strong>Barcode Found:</strong> ${data.full_code} <br>
-              <strong>Comic Title:</strong> ${data.comic_title} <br>
-              <strong>Issue Number:</strong> ${data.issue_number}
+      processing = false;
+      if (scanQueue.length) processQueue();
+    }
+
+    function captureAndSend() {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video,0,0);
+      canvas.toBlob(blob => {
+        const fd = new FormData();
+        fd.append('image', blob, 'barcode.jpg');
+        fetch('http://192.168.86.68:5000/scan', { method:'POST', body:fd })
+          .then(r=>r.json()).then(data=>{
+            resultEl.innerHTML = `
+              <strong>Barcode:</strong> ${data.full_code}<br>
+              <strong>Title:</strong> ${data.comic_title}<br>
+              <strong>Issue:</strong> ${data.issue_number}
             `;
           })
-          .catch(error => {
-            console.error("Error sending image:", error);
-            resultElement.innerHTML += "<br>❌ Server Error. Try again!";
+          .catch(e=>{
+            console.error('POST error:', e);
+            resultEl.innerHTML += '<br>❌ Server error';
           });
-        }, 'image/jpeg');
-      }
+      }, 'image/jpeg');
+    }
 
-      restartBtn.addEventListener('click', function () {
-        resultElement.innerHTML = "Waiting for barcode scan...";
-        codeReader.reset();
-        scanQueue = [];
-        restartBtn.style.display = "none";
-        // Reset stable detection variables when restarting
-        stableUPC = "";
-        upcCount = 0;
-        startScanner();
-      });
+    restartBtn.addEventListener('click', () => {
+      resultEl.innerHTML = 'Waiting for barcode scan...';
+      stableUPC = ''; upcCount = 0; scanQueue = [];
+      codeReader.reset();
+      restartBtn.style.display = 'none';
+      startDecoding();
     });
+  });
   </script>
 </body>
 </html>

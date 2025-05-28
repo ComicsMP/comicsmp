@@ -172,6 +172,15 @@ if (!empty($groupedMatches)) {
         <input class="form-check-input" type="checkbox" id="hiddenCheckbox">
         <label class="form-check-label" for="hiddenCheckbox">Hidden</label>
       </div>
+<div class="form-check form-check-inline me-2">
+  <input class="form-check-input" type="checkbox" id="buyCheckbox" checked>
+  <label class="form-check-label" for="buyCheckbox">Buy</label>
+</div>
+<div class="form-check form-check-inline me-2">
+  <input class="form-check-input" type="checkbox" id="sellCheckbox" checked>
+  <label class="form-check-label" for="sellCheckbox">Sell</label>
+</div>
+
     </div>
 
     <table class="table table-striped" id="matchesTable">
@@ -209,12 +218,14 @@ if (!empty($groupedMatches)) {
           $isHidden = $first['is_hidden'];
       ?>
         <tr class="main-row"
-            data-user-id="<?= $otherId ?>"
-            data-distance="<?= $distNum ?>"
-            data-match-time="<?= strtotime($first['match_time']) ?>"
-            data-match-count="<?= count($group) ?>"
-            data-hidden="<?= $isHidden ?>"
-            <?= $isHidden ? 'style="display:none;"' : '' ?>>
+     data-user-id="<?= $otherId ?>"
+     data-distance="<?= $distNum ?>"
+     data-match-time="<?= strtotime($first['match_time']) ?>"
+     data-match-count="<?= count($group) ?>"
+     data-hidden="<?= $isHidden ?>"
+     data-type="<?= $intent ?>"
+     <?= $isHidden ? 'style="display:none;"' : '' ?>>
+
 
           <td><?= count($group) ?></td>
           <td><strong><?= htmlspecialchars($name) ?></strong></td>
@@ -396,19 +407,31 @@ if (!empty($groupedMatches)) {
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
   function filterMatches() {
-    const maxD   = parseFloat($('#distanceSlider').val()) || 0;
-    const showA  = $('#activeCheckbox').is(':checked');
-    const showH  = $('#hiddenCheckbox').is(':checked');
+    const maxD    = parseFloat($('#distanceSlider').val()) || 0;
+    const showA   = $('#activeCheckbox').is(':checked');
+    const showH   = $('#hiddenCheckbox').is(':checked');
+    const showBuy = $('#buyCheckbox').is(':checked');
+    const showSell= $('#sellCheckbox').is(':checked');
 
-    $('#matchesContainer .main-row').each(function() {
-      const $row     = $(this);
-      const dist     = +$row.data('distance') || 0;
-      const isHidden = $row.data('hidden') === 1;
-      const ok       = (dist <= maxD) && ((isHidden && showH) || (!isHidden && showA));
-      $row.toggle(ok);
-      $('#detail-'+$row.data('user-id')).toggle(ok && $('#detail-'+$row.data('user-id')).is(':visible'));
+    $('#matchesContainer .main-row').each(function () {
+      const $row      = $(this);
+      const dist      = +$row.data('distance') || 0;
+      const isHidden  = $row.data('hidden') === 1;
+      const type      = $row.data('type');
+
+      const matchesBuy  = (type === 'buy' || type === 'buy_sell') && showBuy;
+      const matchesSell = (type === 'sell' || type === 'buy_sell') && showSell;
+
+      const typeOk = matchesBuy || matchesSell;
+      const statusOk = (isHidden && showH) || (!isHidden && showA);
+      const distOk = dist <= maxD;
+
+      const visible = typeOk && statusOk && distOk;
+      $row.toggle(visible);
+      $('#detail-' + $row.data('user-id')).toggle(visible && $('#detail-' + $row.data('user-id')).is(':visible'));
     });
   }
+
   function sortMatches() {
     const mode = $('#matchSortSelect').val(),
           $tb  = $('#matchesTable tbody'),
@@ -427,50 +450,15 @@ if (!empty($groupedMatches)) {
     });
   }
 
-  // initialize on page load
+  // initialize on load
   sortMatches();
   filterMatches();
 
-  // wire controls
   $(document)
     .on('change', '#matchSortSelect', sortMatches)
-    .on('input change', '#distanceSlider', function() {
+    .on('input change', '#distanceSlider', function () {
       $('#distanceValue').text(this.value);
       filterMatches();
     })
-    .on('change', '#activeCheckbox, #hiddenCheckbox', filterMatches);
-
-
-  // —— NEW PM handler ——
-  $(document).on("click", ".pm-btn", function(e) {
-    e.preventDefault();
-    const btn          = $(this);
-    const to           = btn.data("user-id");
-    const intent       = btn.data("intent");
-    const displayname  = btn.data("displayname");
-    // Pull the raw JSON from the attributes:
-    const rawBuy  = btn.attr("data-buy-matches")  || "[]";
-    const rawSell = btn.attr("data-sell-matches") || "[]";
-    let buyMatches = [], sellMatches = [];
-    try { buyMatches  = JSON.parse(rawBuy);  } catch(_) { console.error("buyMatches parse error", rawBuy); }
-    try { sellMatches = JSON.parse(rawSell); } catch(_) { console.error("sellMatches parse error", rawSell); }
-
-    // build and navigate:
-    const params = new URLSearchParams({
-      to:           to,
-      intent:       intent,
-      displayname:  displayname,
-      buy_matches:  JSON.stringify(buyMatches),
-      sell_matches: JSON.stringify(sellMatches)
-    });
-    window.location.href = 'matches_msg.php?' + params.toString();
-  });
-
-  // (leave your existing hide/delete/expand code below exactly as-is)
-  $(document).ready(function () {
-    $(document).on("click", ".pm-btn", function () {
-      // this inner handler will never fire now, because we called e.preventDefault() above
-      // and we replaced it with our redirect.  You can safely remove this block if you wish.
-    });
-  });
+    .on('change', '#activeCheckbox, #hiddenCheckbox, #buyCheckbox, #sellCheckbox', filterMatches);
 </script>

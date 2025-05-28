@@ -53,19 +53,22 @@ if (!$comic_title) {
 $favoritedTitles = [];
 if ($user_id) {
     $stmtFavs = $conn->prepare("
-      SELECT comic_title, years
-        FROM user_favorite_titles
-       WHERE user_id = ?
-    ");
+  SELECT comic_title, years, country
+    FROM user_favorite_titles
+   WHERE user_id = ?
+");
+
     $stmtFavs->bind_param("i", $user_id);
     $stmtFavs->execute();
     $resFavs = $stmtFavs->get_result();
-    while ($r = $resFavs->fetch_assoc()) {
-        $favoritedTitles[] = [
-            'comic_title' => $r['comic_title'],
-            'years'       => $r['years']
-        ];
-    }
+   while ($r = $resFavs->fetch_assoc()) {
+    $favoritedTitles[] = [
+        'comic_title' => $r['comic_title'],
+        'years'       => $r['years'],
+        'country'     => $r['country'] ?? ''
+    ];
+}
+
     $stmtFavs->close();
 }
 
@@ -87,6 +90,8 @@ try {
     if ($issue_number && $issue_number !== "All") {
         if ($tab === 'Issues') {
             $base = str_replace('#','',$issue_number);
+$escaped = preg_quote($base, '/'); // <== ✅ ADD THIS
+
             if (!$include_var) {
                 $where[]  = "REPLACE(c.Issue_Number,'#','') = ?";
                 $params[] = $base;           $types .= 's';
@@ -98,7 +103,8 @@ try {
                 )";
                 $params[] = $base;
                 $params[] = $base.'[A-Z]%';
-                $params[] = '^'.preg_quote($base).'(?:[-.]?[A-Za-z].*)?$';
+                $params[] = '^' . $escaped . '(?:[-.]?[A-Za-z].*)?$';
+
                 $types  .= 'sss';
             }
         } else {
@@ -117,6 +123,8 @@ try {
         c.Comic_Title   AS comic_title,
         c.Issue_Number  AS issue_number,
         c.Years         AS years,
+        c.Country       AS Country,
+
         c.Volume        AS volume,
         c.Tab           AS tab,
         c.Variant       AS variant,
@@ -165,13 +173,16 @@ try {
             $first       = $result->fetch_assoc();
             $seriesTitle = htmlspecialchars($first['comic_title']);
             $seriesYear  = htmlspecialchars($first['years']);
+            $seriesCountry = htmlspecialchars($first['Country'] ?? 'Unknown');
+
 
             // determine favorite state (using both title + year)
-            $isFav    = in_array(
-                ['comic_title'=>$seriesTitle, 'years'=>$seriesYear],
-                $favoritedTitles,
-                true
-            );
+            $isFav = in_array(
+    ['comic_title' => $seriesTitle, 'years' => $seriesYear, 'country' => $seriesCountry],
+    $favoritedTitles,
+    true
+);
+
             $icon     = $isFav ? '💖' : '❤️';
             $btnClass = $isFav ? 'favorited' : '';
 
@@ -185,13 +196,14 @@ try {
                 </h5>
                 <?php if ($user_id): ?>
                   <button
-                    class="btn btn-sm btn-outline-secondary favorite-title-btn <?= $btnClass ?>"
-                    data-comic-title="<?= $seriesTitle ?>"
-                    data-year="<?= $seriesYear ?>"
-                    style="font-size: 1.1rem;"
-                  >
-                    <span class="favorite-icon"><?= $icon ?></span>
-                  </button>
+  class="btn btn-sm btn-outline-secondary favorite-title-btn <?= $btnClass ?>"
+  data-comic-title="<?= $seriesTitle ?>"
+  data-year="<?= $seriesYear ?>"
+  data-country="<?= $seriesCountry ?>"
+  style="font-size: 1.1rem;">
+  <span class="favorite-icon"><?= $icon ?></span>
+</button>
+
                 <?php endif; ?>
               </div>
               <hr style="margin:4px 0 0; border:none; border-top:1px solid #ccc;">
@@ -201,36 +213,42 @@ try {
         ?>
         <script>
         // send both title+year to toggleFavoriteTitle.php
-        $(document).on('click', '.favorite-title-btn', function () {
-          const $btn        = $(this);
-          const title       = $btn.data('comic-title');
-          const years       = $btn.data('year');
-          const isFavorited = $btn.hasClass('favorited');
+        $(document).off('click', '.favorite-title-btn').on('click', '.favorite-title-btn', function () {
 
-          $.post('toggleFavoriteTitle.php', {
-            comic_title: title,
-            years:       years,
-            action:      isFavorited ? 'remove' : 'add'
-          }, function(response) {
-            if (response.status === 'success') {
-              $btn.toggleClass('favorited');
-              $btn.find('.favorite-icon')
-                  .text(isFavorited ? '❤️' : '💖');
-            } else {
-              alert(response.message || 'Failed to update favorites.');
-            }
-          }, 'json');
-        });
+  const $btn        = $(this);
+  const title       = $btn.data('comic-title');
+  const years       = $btn.data('year');
+  const country     = $btn.data('country'); // ✅ Use actual country
+  const isFavorited = $btn.hasClass('favorited');
+console.log("Favorite clicked", { title, years, country, isFavorited });
+
+  $.post('toggleFavoriteTitle.php', {
+    comic_title: title,
+    years:       years,
+    country:     country,
+    action:      isFavorited ? 'remove' : 'add'
+  }, function(response) {
+    if (response.status === 'success') {
+      $btn.toggleClass('favorited');
+      $btn.find('.favorite-icon')
+          .text(isFavorited ? '❤️' : '💖');
+    } else {
+      alert(response.message || 'Failed to update favorites.');
+    }
+  }, 'json');
+});
+
         </script>
         <?php
 
         // ── GALLERY ITEMS ──
         while ($row = $result->fetch_assoc()) {
-            $title   = htmlspecialchars($row['comic_title']);
-            $issue   = '#'.ltrim($row['issue_number'],'#');
-            $yrs     = htmlspecialchars($row['years']);
-            $tabVal  = htmlspecialchars($row['tab']);
-            $variant = htmlspecialchars($row['variant']);
+            $title   = htmlspecialchars($row['comic_title'] ?? '');
+$issue   = '#' . ltrim($row['issue_number'] ?? '', '#');
+$yrs     = htmlspecialchars($row['years'] ?? '');
+$tabVal  = htmlspecialchars($row['tab'] ?? '');
+$variant = htmlspecialchars($row['variant'] ?? '');
+
             $wanted  = !empty($row['wanted_id']);
             $imgRaw  = trim($row['image_path']);
             if (!$imgRaw || strtolower($imgRaw)==='null') {
@@ -251,7 +269,8 @@ try {
                  data-full="<?= htmlspecialchars($img) ?>"
                  data-issue-url="<?= htmlspecialchars($row['issue_url']) ?>"
                  data-date="<?= htmlspecialchars($row['comic_date']) ?>"
-                 data-upc="<?= htmlspecialchars($row['upc']) ?>">
+                 data-upc="<?= htmlspecialchars($row['upc'] ?? '') ?>"
+>
               <img src="<?= $img ?>"
                    alt="<?= $title ?>"
                    class="comic-image">

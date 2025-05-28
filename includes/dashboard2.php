@@ -11,464 +11,473 @@ if (!isset($_SESSION['user_id'])) {
     echo "<p>You must be logged in to view this content.</p>";
     exit;
 }
-
 $userId = $_SESSION['user_id'];
 
 // ---------------------------------------------
-// Get user's preferred currency from "users"
+// Get user's preferred currency
 // ---------------------------------------------
-$sqlUserCurrency = "SELECT preferred_currency FROM users WHERE id = ?";
-$stmt = $conn->prepare($sqlUserCurrency);
+$sql = "SELECT preferred_currency FROM users WHERE id = ?";
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $userId);
 $stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$preferredCurrency = $row['preferred_currency'];
+$preferredCurrency = $stmt->get_result()->fetch_assoc()['preferred_currency'];
 $stmt->close();
 
 // ---------------------------------------------
-// 1) Get WANTED ITEMS stats from "wanted_items"
+// 1) Wanted items stats
 // ---------------------------------------------
-$sqlWantedTotal = "SELECT COUNT(*) AS total FROM wanted_items WHERE user_id = ?";
-$sqlWanted24    = "SELECT COUNT(*) AS count24 FROM wanted_items WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 1 DAY";
-$sqlWantedWeek  = "SELECT COUNT(*) AS countWeek FROM wanted_items WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 7 DAY";
-$sqlWantedMonth = "SELECT COUNT(*) AS countMonth FROM wanted_items WHERE user_id = ? AND `Timestamp` >= NOW() - INTERVAL 30 DAY";
-
-$stmt = $conn->prepare($sqlWantedTotal);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$wantedTotal = $row['total'];
-
-$stmt = $conn->prepare($sqlWanted24);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$wanted24 = $row['count24'];
-
-$stmt = $conn->prepare($sqlWantedWeek);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$wantedWeek = $row['countWeek'];
-
-$stmt = $conn->prepare($sqlWantedMonth);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$wantedMonth = $row['countMonth'];
-
-// ---------------------------------------------
-// 2) Get COMICS FOR SALE stats from "comics_for_sale"
-// ---------------------------------------------
-$sqlSaleTotal = "SELECT COUNT(*) AS total FROM comics_for_sale WHERE user_id = ?";
-$sqlSale24    = "SELECT COUNT(*) AS count24 FROM comics_for_sale WHERE user_id = ? AND created_at >= NOW() - INTERVAL 1 DAY";
-$sqlSaleWeek  = "SELECT COUNT(*) AS countWeek FROM comics_for_sale WHERE user_id = ? AND created_at >= NOW() - INTERVAL 7 DAY";
-$sqlSaleMonth = "SELECT COUNT(*) AS countMonth FROM comics_for_sale WHERE user_id = ? AND created_at >= NOW() - INTERVAL 30 DAY";
-
-$stmt = $conn->prepare($sqlSaleTotal);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$saleTotal = $row['total'];
-
-$stmt = $conn->prepare($sqlSale24);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$sale24 = $row['count24'];
-
-$stmt = $conn->prepare($sqlSaleWeek);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$saleWeek = $row['countWeek'];
-
-$stmt = $conn->prepare($sqlSaleMonth);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$saleMonth = $row['countMonth'];
-
-// ---------------------------------------------
-// 3) Get MATCHES stats from "match_notifications"
-// ---------------------------------------------
-$sqlMatchesTotal = "SELECT COUNT(*) AS total FROM match_notifications WHERE buyer_id = ? OR seller_id = ?";
-$sqlMatches24    = "SELECT COUNT(*) AS count24 FROM match_notifications WHERE (buyer_id = ? OR seller_id = ?) AND match_time >= NOW() - INTERVAL 1 DAY";
-$sqlMatchesWeek  = "SELECT COUNT(*) AS countWeek FROM match_notifications WHERE (buyer_id = ? OR seller_id = ?) AND match_time >= NOW() - INTERVAL 7 DAY";
-$sqlMatchesMonth = "SELECT COUNT(*) AS countMonth FROM match_notifications WHERE (buyer_id = ? OR seller_id = ?) AND match_time >= NOW() - INTERVAL 30 DAY";
-
-$stmt = $conn->prepare($sqlMatchesTotal);
-$stmt->bind_param("ii", $userId, $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$matchesTotal = $row['total'];
-
-$stmt = $conn->prepare($sqlMatches24);
-$stmt->bind_param("ii", $userId, $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$matches24 = $row['count24'];
-
-$stmt = $conn->prepare($sqlMatchesWeek);
-$stmt->bind_param("ii", $userId, $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$matchesWeek = $row['countWeek'];
-
-$stmt = $conn->prepare($sqlMatchesMonth);
-$stmt->bind_param("ii", $userId, $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$row = $result->fetch_assoc();
-$matchesMonth = $row['countMonth'];
-
-$stmt->close();
-
-// ---------------------------------------------
-// 4) Get Latest Comics Released from "wanted_items"
-//    (This section has been removed per request.)
-// ---------------------------------------------
-
-// ---------------------------------------------
-// NEW: Get My Recent Wanted Comics using Issue_URL join
-//    (Match wanted_items.Issue_URL with comics.Issue_URL and use comics.Image_Path)
-// ---------------------------------------------
-$sqlMyRecentWanted = "SELECT w.Comic_Title, w.Issue_Number, w.Issue_URL, c.Image_Path 
-                      FROM wanted_items AS w 
-                      LEFT JOIN comics AS c ON w.Issue_URL = c.Issue_URL 
-                      WHERE w.user_id = ? 
-                      ORDER BY w.ID DESC 
-                      LIMIT 4";
-$stmt = $conn->prepare($sqlMyRecentWanted);
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$resultMyWanted = $stmt->get_result();
-$myRecentWanted = [];
-while ($row = $resultMyWanted->fetch_assoc()) {
-    $myRecentWanted[] = $row;
+foreach (['Total','24','Week','Month'] as $period) {
+    $sql = match($period) {
+        'Total' => "SELECT COUNT(*) AS cnt FROM wanted_items WHERE user_id=?",
+        '24'    => "SELECT COUNT(*) AS cnt FROM wanted_items WHERE user_id=? AND `Timestamp`>=NOW()-INTERVAL 1 DAY",
+        'Week'  => "SELECT COUNT(*) AS cnt FROM wanted_items WHERE user_id=? AND `Timestamp`>=NOW()-INTERVAL 7 DAY",
+        'Month' => "SELECT COUNT(*) AS cnt FROM wanted_items WHERE user_id=? AND `Timestamp`>=NOW()-INTERVAL 30 DAY",
+    };
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    ${"wanted$period"} = $stmt->get_result()->fetch_assoc()['cnt'];
+    $stmt->close();
 }
-$stmt->close();
 
 // ---------------------------------------------
-// 5) Get My Recent Comics for Sale from "comics_for_sale"
-//    (Only select the image_path for the logged-in user)
+// 2) Comics for sale stats
 // ---------------------------------------------
-$sqlMyRecentSales = "SELECT image_path FROM comics_for_sale WHERE user_id = ? ORDER BY id DESC LIMIT 4";
-$stmt = $conn->prepare($sqlMyRecentSales);
+foreach (['Total','24','Week','Month'] as $period) {
+    $sql = match($period) {
+        'Total' => "SELECT COUNT(*) AS cnt FROM comics_for_sale WHERE user_id=?",
+        '24'    => "SELECT COUNT(*) AS cnt FROM comics_for_sale WHERE user_id=? AND created_at>=NOW()-INTERVAL 1 DAY",
+        'Week'  => "SELECT COUNT(*) AS cnt FROM comics_for_sale WHERE user_id=? AND created_at>=NOW()-INTERVAL 7 DAY",
+        'Month' => "SELECT COUNT(*) AS cnt FROM comics_for_sale WHERE user_id=? AND created_at>=NOW()-INTERVAL 30 DAY",
+    };
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    ${"sale$period"} = $stmt->get_result()->fetch_assoc()['cnt'];
+    $stmt->close();
+}
+
+// ---------------------------------------------
+// 3) Matches stats
+// ---------------------------------------------
+foreach (['Total','24','Week','Month'] as $period) {
+    $sql = match($period) {
+        'Total' => "SELECT COUNT(*) AS cnt FROM match_notifications WHERE buyer_id=? OR seller_id=?",
+        '24'    => "SELECT COUNT(*) AS cnt FROM match_notifications WHERE (buyer_id=? OR seller_id=?) AND match_time>=NOW()-INTERVAL 1 DAY",
+        'Week'  => "SELECT COUNT(*) AS cnt FROM match_notifications WHERE (buyer_id=? OR seller_id=?) AND match_time>=NOW()-INTERVAL 7 DAY",
+        'Month' => "SELECT COUNT(*) AS cnt FROM match_notifications WHERE (buyer_id=? OR seller_id=?) AND match_time>=NOW()-INTERVAL 30 DAY",
+    };
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $userId, $userId);
+    $stmt->execute();
+    ${"matches$period"} = $stmt->get_result()->fetch_assoc()['cnt'];
+    $stmt->close();
+}
+
+// ---------------------------------------------
+// 4) My Recent Wanted Comics
+// ---------------------------------------------
+$sql = "
+  SELECT c.Image_Path
+    FROM wanted_items w
+    LEFT JOIN comics c ON w.Issue_URL=c.Issue_URL
+   WHERE w.user_id=?
+   ORDER BY w.ID DESC
+   LIMIT 4
+";
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $userId);
 $stmt->execute();
-$resultMySales = $stmt->get_result();
-$myRecentSales = [];
-while ($row = $resultMySales->fetch_assoc()) {
-    $myRecentSales[] = $row;
-}
+$myRecentWanted = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 // ---------------------------------------------
-// 6) Get the most recent 15 comics listed for sale (all users)
-//    Now include comic_condition in the query
+// 5) My Recent Comics for Sale
 // ---------------------------------------------
-$sqlRecent15 = "SELECT c.comic_title, c.issue_number, c.price, c.image_path, c.comic_condition, c.created_at, u.preferred_currency 
-                FROM comics_for_sale c
-                JOIN users u ON c.user_id = u.id
-                ORDER BY c.created_at DESC 
-                LIMIT 15";
-$stmt = $conn->prepare($sqlRecent15);
+$sql = "SELECT image_path FROM comics_for_sale WHERE user_id=? ORDER BY id DESC LIMIT 4";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $userId);
 $stmt->execute();
-$resultRecent15 = $stmt->get_result();
-$recent15Sales = [];
-while ($row = $resultRecent15->fetch_assoc()) {
-    $recent15Sales[] = $row;
-}
+$myRecentSales = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 // ---------------------------------------------
-// 7) Get My Recent Comic Matches from "match_notifications"
-//    (Join with comics table to get the cover image, ordering by match_time)
+// 6) My Recent Matches
 // ---------------------------------------------
-$sqlMyRecentMatches = "SELECT m.comic_title, m.issue_number, m.match_time, c.Image_Path 
-                       FROM match_notifications m 
-                       LEFT JOIN comics c ON m.comic_title = c.comic_title AND m.issue_number = c.issue_number 
-                       WHERE m.buyer_id = ? OR m.seller_id = ? 
-                       ORDER BY m.match_time DESC 
-                       LIMIT 4";
-$stmt = $conn->prepare($sqlMyRecentMatches);
+$sql = "
+  SELECT c.Image_Path
+    FROM match_notifications m
+    LEFT JOIN comics c ON m.comic_title=c.comic_title AND m.issue_number=c.issue_number
+   WHERE m.buyer_id=? OR m.seller_id=?
+   ORDER BY m.match_time DESC
+   LIMIT 4
+";
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $userId, $userId);
 $stmt->execute();
-$resultMyMatches = $stmt->get_result();
-$myRecentMatches = [];
-while ($row = $resultMyMatches->fetch_assoc()) {
-    $myRecentMatches[] = $row;
-}
+$myRecentMatches = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// -------------------------
-// Grade Mapping for Abbreviations (use string keys)
-// -------------------------
+// ---------------------------------------------
+// 7) Latest 15 Comics for Sale (global)
+// ---------------------------------------------
+$sql = "
+  SELECT c.comic_title, c.issue_number, c.price, c.image_path, c.comic_condition, u.preferred_currency
+    FROM comics_for_sale AS c
+    JOIN users AS u ON c.user_id = u.id
+   ORDER BY c.created_at DESC
+   LIMIT 15
+";
+$recent15Sales = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
+
+// ---------------------------------------------
+// 8) Top 15 Most Wanted (global)
+// ---------------------------------------------
+$sql = "
+  SELECT 
+    w.Comic_Title,
+    w.Issue_Number,
+    c.Years,
+    c.Image_Path
+  FROM wanted_items w
+  JOIN comics c ON w.Issue_URL = c.Issue_URL
+  GROUP BY w.Comic_Title, w.Issue_Number, c.Years, c.Image_Path
+  ORDER BY COUNT(*) DESC
+  LIMIT 15
+";
+$topWanted = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
+// ---------------------------------------------
+// 9) Top 15 Most For Sale (global)
+// ---------------------------------------------
+$sql = "
+  SELECT 
+    s.comic_title   AS Comic_Title,
+    s.issue_number  AS Issue_Number,
+    c.Years,
+    c.Image_Path
+  FROM comics_for_sale AS s
+  JOIN comics AS c 
+    ON s.Issue_URL = c.Issue_URL
+  GROUP BY s.comic_title, s.issue_number, c.Years, c.Image_Path
+  ORDER BY COUNT(*) DESC
+  LIMIT 15
+";
+$topForSale = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
+
+// ---------------------------------------------
+// 10) Hottest Comics (This Week vs Last Week Ranks - Unique Rankings)
+// ---------------------------------------------
+$sql = "
+WITH this_week AS (
+  SELECT 
+    w.Issue_URL,
+    COUNT(*) - COALESCE(s.count, 0) AS score,
+    ROW_NUMBER() OVER (ORDER BY COUNT(*) - COALESCE(s.count, 0) DESC) AS this_rank
+  FROM wanted_items w
+  LEFT JOIN (
+    SELECT issue_url, COUNT(*) AS count
+    FROM comics_for_sale
+    WHERE created_at >= NOW() - INTERVAL 7 DAY
+    GROUP BY issue_url
+  ) s ON w.Issue_URL = s.issue_url
+  WHERE w.Timestamp >= NOW() - INTERVAL 7 DAY
+  GROUP BY w.Issue_URL
+),
+last_week AS (
+  SELECT 
+    w.Issue_URL,
+    COUNT(*) - COALESCE(s.count, 0) AS score,
+    ROW_NUMBER() OVER (ORDER BY COUNT(*) - COALESCE(s.count, 0) DESC) AS last_rank
+  FROM wanted_items w
+  LEFT JOIN (
+    SELECT issue_url, COUNT(*) AS count
+    FROM comics_for_sale
+    WHERE created_at BETWEEN NOW() - INTERVAL 14 DAY AND NOW() - INTERVAL 7 DAY
+    GROUP BY issue_url
+  ) s ON w.Issue_URL = s.issue_url
+  WHERE w.Timestamp BETWEEN NOW() - INTERVAL 14 DAY AND NOW() - INTERVAL 7 DAY
+  GROUP BY w.Issue_URL
+)
+SELECT 
+  c.Comic_Title,
+  c.Issue_Number,
+  c.Years,
+  c.Image_Path,
+  t.this_rank,
+  COALESCE(l.last_rank, NULL) AS last_rank
+FROM this_week t
+LEFT JOIN last_week l ON t.Issue_URL = l.Issue_URL
+JOIN comics c ON c.Issue_URL = t.Issue_URL
+ORDER BY t.this_rank
+LIMIT 15
+";
+$hottest = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
+
+
+// Grade mapping
 $gradeMapping = [
-    "10.0" => "Gem Mint",
-    "9.9"  => "Mint",
-    "9.8"  => "NM/M",
-    "9.6"  => "NM+",
-    "9.4"  => "NM",
-    "9.2"  => "NM-",
-    "9.0"  => "VF/NM",
-    "8.5"  => "VF+",
-    "8.0"  => "VF",
-    "7.5"  => "VF-",
-    "7.0"  => "FN/VF",
-    "6.5"  => "FN+",
-    "6.0"  => "FN",
-    "5.5"  => "FN-",
-    "5.0"  => "VG/FN",
-    "4.5"  => "VG+",
-    "4.0"  => "VG",
-    "3.5"  => "VG-",
-    "3.0"  => "G/VG",
-    "2.5"  => "G",
-    "2.0"  => "G",
-    "1.8"  => "G-",
-    "1.5"  => "Fa/G",
-    "1.0"  => "Fa",
-    "0.5"  => "Poor"
+  "10.0"=>"Gem Mint","9.9"=>"Mint","9.8"=>"NM/M","9.6"=>"NM+","9.4"=>"NM",
+  "9.2"=>"NM-","9.0"=>"VF/NM","8.5"=>"VF+","8.0"=>"VF","7.5"=>"VF-",
+  "7.0"=>"FN/VF","6.5"=>"FN+","6.0"=>"FN","5.5"=>"FN-","5.0"=>"VG/FN",
+  "4.5"=>"VG+","4.0"=>"VG","3.5"=>"VG-","3.0"=>"G/VG","2.5"=>"G",
+  "2.0"=>"G","1.8"=>"G-","1.5"=>"Fa/G","1.0"=>"Fa","0.5"=>"Poor"
 ];
-
-// Helper function to format the score for display
-function formatScore($score) {
-    if (is_numeric($score)) {
-        $floatVal = floatval($score);
-        if ($floatVal == intval($floatVal)) {
-            return intval($floatVal);
-        }
-    }
-    return $score;
-}
-
-// Helper function to get the proper key for the gradeMapping lookup
-function getScoreKey($score) {
-    if (is_numeric($score)) {
-        return number_format(floatval($score), 1);
-    }
-    return $score;
-}
 ?>
-
 <!-- BEGIN: Dashboard Full-Width Layout -->
 <div class="container-fluid py-4">
-  <div class="row">
-    <!-- Left Column: Dashboard Overview and Other Sections -->
+  <div class="row gx-4 gy-4">
+
+    <!-- Left Column (unchanged) -->
     <div class="col-lg-6">
       <h2 class="mb-4">Dashboard Overview</h2>
       <div class="row mb-4">
-        <!-- Wanted Items Card -->
+        <!-- Wanted -->
         <div class="col-md-4 mb-3">
           <div class="card text-center shadow-sm">
             <div class="card-body">
               <h5 class="card-title">Wanted Comics</h5>
-              <p class="display-4 mb-0"><?php echo $wantedTotal; ?></p>
-              <small class="text-muted">
-                24hrs: <?php echo $wanted24; ?> | Week: <?php echo $wantedWeek; ?> | Month: <?php echo $wantedMonth; ?>
-              </small>
+              <p class="display-4 mb-0"><?= $wantedTotal ?></p>
+              <small class="text-muted">24h: <?= $wanted24 ?> | Week: <?= $wantedWeek ?> | Month: <?= $wantedMonth ?></small>
             </div>
           </div>
         </div>
-        <!-- Comics for Sale Card -->
+        <!-- For Sale -->
         <div class="col-md-4 mb-3">
           <div class="card text-center shadow-sm">
             <div class="card-body">
               <h5 class="card-title">Comics for Sale</h5>
-              <p class="display-4 mb-0"><?php echo $saleTotal; ?></p>
-              <small class="text-muted">
-                24hrs: <?php echo $sale24; ?> | Week: <?php echo $saleWeek; ?> | Month: <?php echo $saleMonth; ?>
-              </small>
+              <p class="display-4 mb-0"><?= $saleTotal ?></p>
+              <small class="text-muted">24h: <?= $sale24 ?> | Week: <?= $saleWeek ?> | Month: <?= $saleMonth ?></small>
             </div>
           </div>
         </div>
-        <!-- Matches Card -->
+        <!-- Matches -->
         <div class="col-md-4 mb-3">
           <div class="card text-center shadow-sm">
             <div class="card-body">
               <h5 class="card-title">Matches</h5>
-              <p class="display-4 mb-0"><?php echo $matchesTotal; ?></p>
-              <small class="text-muted">
-                24hrs: <?php echo $matches24; ?> | Week: <?php echo $matchesWeek; ?> | Month: <?php echo $matchesMonth; ?>
-              </small>
+              <p class="display-4 mb-0"><?= $matchesTotal ?></p>
+              <small class="text-muted">24h: <?= $matches24 ?> | Week: <?= $matchesWeek ?> | Month: <?= $matchesMonth ?></small>
             </div>
           </div>
         </div>
       </div>
-      
-      <!-- Quick Actions Section -->
-      <div class="mt-4">
+
+      <!-- Quick Actions -->
+      <div class="mt-4 mb-5">
         <h3 class="mb-3">Quick Actions</h3>
         <div class="d-flex flex-wrap gap-3">
-          <a href="#wanted" class="btn-tab-bridge btn btn-outline-primary">Manage Wanted List</a>
-          <a href="#selling" class="btn-tab-bridge btn btn-outline-success">Manage Listings</a>
-          <a href="#matches" class="btn-tab-bridge btn btn-outline-info">View Matches</a>
+          <a href="#wanted" class="btn btn-outline-primary">Manage Wanted List</a>
+          <a href="#selling" class="btn btn-outline-success">Manage Listings</a>
+          <a href="#matches" class="btn btn-outline-info">View Matches</a>
         </div>
       </div>
-      
-      <!-- NEW: My Recent Wanted Comics Section -->
-      <h3 class="mb-3 mt-5">My Recent Wanted Comics</h3>
+
+      <!-- My Recent Wanted Comics -->
+      <h3 class="mb-3">My Recent Wanted Comics</h3>
       <div class="row">
-        <?php if (!empty($myRecentWanted)): ?>
-          <?php foreach ($myRecentWanted as $wanted):
-                  $rawPathWanted = $wanted['Image_Path'];
-                  $finalImageWanted = getFinalImagePathV2($rawPathWanted);
-                  if ($finalImageWanted === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                      echo '<!-- DEBUG: Wanted Comic raw image_path: ' . htmlspecialchars($rawPathWanted) . ' | Final: ' . htmlspecialchars($finalImageWanted) . ' -->';
-                  }
-          ?>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImageWanted); ?>"
-                     class="card-img-top"
-                     alt="<?php echo htmlspecialchars($wanted['Comic_Title']); ?>">
-              </div>
+        <?php if ($myRecentWanted): foreach ($myRecentWanted as $w): ?>
+          <div class="col-sm-6 col-md-3 mb-3">
+            <div class="card shadow-sm">
+              <img src="<?= htmlspecialchars(getFinalImagePathV2($w['Image_Path'])) ?>" class="card-img-top" alt="">
             </div>
-          <?php endforeach; ?>
-        <?php else: ?>
+          </div>
+        <?php endforeach; else: ?>
           <p class="text-muted">No recent wanted comics available.</p>
         <?php endif; ?>
       </div>
-      
-      <!-- My Recent Comics for Sale Section -->
+
+      <!-- My Recent Comics for Sale -->
       <h3 class="mb-3 mt-5">My Recent Comics for Sale</h3>
       <div class="row">
-        <?php if (!empty($myRecentSales)): ?>
-          <?php foreach ($myRecentSales as $sale):
-                  $rawPathSale = $sale['image_path'];
-                  $finalImageSale = getFinalImagePathV2($rawPathSale);
-                  if ($finalImageSale === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                      echo '<!-- DEBUG: Sale Comic raw image_path: ' . htmlspecialchars($rawPathSale) . ' | Final: ' . htmlspecialchars($finalImageSale) . ' -->';
-                  }
-          ?>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImageSale); ?>"
-                     class="card-img-top"
-                     alt="Comic Image">
-              </div>
+        <?php if ($myRecentSales): foreach ($myRecentSales as $s): ?>
+          <div class="col-sm-6 col-md-3 mb-3">
+            <div class="card shadow-sm">
+              <img src="<?= htmlspecialchars(getFinalImagePathV2($s['image_path'])) ?>" class="card-img-top" alt="">
             </div>
-          <?php endforeach; ?>
-        <?php else: ?>
+          </div>
+        <?php endforeach; else: ?>
           <p class="text-muted">No recent sales available.</p>
         <?php endif; ?>
       </div>
-      
-      <!-- NEW: My Recent Comic Matches Section -->
+
+      <!-- My Recent Matches -->
       <h3 class="mb-3 mt-5">My Recent Comic Matches</h3>
       <div class="row">
-        <?php if (!empty($myRecentMatches)): ?>
-          <?php foreach ($myRecentMatches as $match):
-                  $rawPathMatch = $match['Image_Path'];
-                  $finalImageMatch = getFinalImagePathV2($rawPathMatch);
-          ?>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card shadow-sm">
-                <img src="<?php echo htmlspecialchars($finalImageMatch); ?>"
-                     class="card-img-top"
-                     alt="<?php echo htmlspecialchars($match['comic_title']); ?>">
-              </div>
+        <?php if ($myRecentMatches): foreach ($myRecentMatches as $m): ?>
+          <div class="col-sm-6 col-md-3 mb-3">
+            <div class="card shadow-sm">
+              <img src="<?= htmlspecialchars(getFinalImagePathV2($m['Image_Path'])) ?>" class="card-img-top" alt="">
             </div>
-          <?php endforeach; ?>
-        <?php else: ?>
+          </div>
+        <?php endforeach; else: ?>
           <p class="text-muted">No recent comic matches available.</p>
         <?php endif; ?>
       </div>
-      
-      <!-- Note: The "Latest Comics Released (from Wanted Items)" section has been removed per request. -->
-      
     </div>
-    
-    <!-- Right Column: Latest Comics for Sale -->
+
+    <!-- Right Column with Tabs -->
     <div class="col-lg-6">
-      <h2 class="mb-4">Latest 15 Comics for Sale</h2>
-      <div class="table-responsive mb-5">
-        <table class="table table-striped table-bordered">
-          <thead class="thead-dark">
-            <tr>
-              <th style="width:60px;">Image</th>
-              <th>Comic Title / Issue / (Condition)</th>
-              <th style="width:80px;">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (!empty($recent15Sales)): ?>
-              <?php foreach ($recent15Sales as $sale):
-                      $rawPathSale = $sale['image_path'];
-                      $finalImageSale = getFinalImagePathV2($rawPathSale);
-                      // Format comic_condition: if condition ends in .0, display without decimals
-                      $condition = $sale['comic_condition'];
-                      $grade = floatval($condition);
-                      if ($grade == floor($grade)) {
-                          $displayGrade = number_format($grade, 0);
-                      } else {
-                          $displayGrade = $condition;
-                      }
-                      // Round grade to one decimal and convert to string for mapping lookup
-                      $roundedGrade = number_format(round($grade, 1), 1, '.', '');
-                      $abbrev = isset($gradeMapping[$roundedGrade]) ? $gradeMapping[$roundedGrade] : "";
-                      // Combine title, issue number, and condition info into one cell
-                      $combinedTitle = htmlspecialchars($sale['comic_title']) . "<br>" .
-                                       "<small>Issue: " . htmlspecialchars($sale['issue_number']) . "</small><br>" .
-                                       "<small class='text-muted'>" . htmlspecialchars($displayGrade) .
-                                       (!empty($abbrev) ? " (" . $abbrev . ")" : "") . "</small>";
-                      if ($finalImageSale === '/comicsmp/images/comicsmp/placeholder.jpg') {
-                          echo '<!-- DEBUG: Recent Sale Comic "' . htmlspecialchars($sale['comic_title']) .
-                               '" raw image_path: ' . htmlspecialchars($rawPathSale) . ' | Final: ' . htmlspecialchars($finalImageSale) . ' -->';
-                      }
-              ?>
+      <ul class="nav nav-tabs mb-3" id="rightTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#latest" type="button">Latest 15</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#globalWanted" type="button">Top Wanted</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#globalForSale" type="button">Top For Sale</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#hottest" type="button">Hottest</button>
+        </li>
+      </ul>
+      <div class="tab-content">
+        <!-- Latest 15 -->
+        <div class="tab-pane fade show active" id="latest">
+          <div class="table-responsive mb-5">
+            <table class="table table-striped table-bordered">
+              <thead class="table-dark">
                 <tr>
-                  <td>
-                    <?php
-                      if (empty($finalImageSale)) {
-                          echo "No Image";
-                      } else {
-                          echo '<img src="' . htmlspecialchars($finalImageSale) . '" alt="' . htmlspecialchars($sale['comic_title']) . '" style="width:50px;height:auto;">';
-                      }
-                    ?>
-                  </td>
-                  <td><?php echo $combinedTitle; ?></td>
-                  <td>$<?php echo number_format($sale['price'], 2); ?> <?php echo htmlspecialchars($sale['preferred_currency']); ?></td>
+                  <th style="width:60px;">Image</th>
+                  <th>Comic Title / Issue / Condition</th>
+                  <th style="width:80px;">Price</th>
                 </tr>
-              <?php endforeach; ?>
-            <?php else: ?>
-              <tr>
-                <td colspan="3" class="text-center">No comics listed for sale.</td>
-              </tr>
-            <?php endif; ?>
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                <?php foreach ($recent15Sales as $s):
+                  $img = getFinalImagePathV2($s['image_path']);
+                  $g = floatval($s['comic_condition']);
+                  $disp = $g==floor($g)?number_format($g,0):$s['comic_condition'];
+                  $abbr = $gradeMapping[number_format(round($g,1),1,'.','')] ?? '';
+                ?>
+                <tr>
+                  <td><?= $img?'<img src="'.htmlspecialchars($img).'" style="width:50px;">':'No Image'?></td>
+                  <td>
+                    <?= htmlspecialchars($s['comic_title']) ?><br>
+                    <small>Issue: <?= htmlspecialchars($s['issue_number']) ?></small><br>
+                    <small class="text-muted"><?= $disp ?><?= $abbr?" ($abbr)":"" ?></small>
+                  </td>
+                  <td>$<?= number_format($s['price'],2) ?> <?= htmlspecialchars($s['preferred_currency']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Wanted -->
+        <div class="tab-pane fade" id="globalWanted">
+          <div class="table-responsive mb-5">
+            <table class="table table-striped table-bordered">
+              <thead class="table-dark">
+                <tr>
+                  <th style="width:60px;">Image</th>
+                  <th>Comic Title / Issue / Year</th>
+                  <th style="width:80px;">Rank</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($topWanted as $i => $w): ?>
+  <tr>
+    <td>
+      <img src="<?= htmlspecialchars(getFinalImagePathV2($w['Image_Path'])) ?>"
+           style="width:50px;">
+    </td>
+    <td>
+      <?= htmlspecialchars($w['Comic_Title']) ?><br>
+      <small>Issue: <?= htmlspecialchars($w['Issue_Number']) ?></small><br>
+      <?php if (!empty($w['Years'])): ?>
+        <small>Year: <?= htmlspecialchars($w['Years']) ?></small>
+      <?php endif; ?>
+    </td>
+    <td>#<?= $i + 1 ?></td>
+  </tr>
+<?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top For Sale -->
+        <div class="tab-pane fade" id="globalForSale">
+          <div class="table-responsive mb-5">
+            <table class="table table-striped table-bordered">
+              <thead class="table-dark">
+                <tr>
+                  <th style="width:60px;">Image</th>
+                  <th>Comic Title / Issue / Year</th>
+                  <th style="width:80px;">Rank</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($topForSale as $i => $f): ?>
+  <tr>
+    <td>
+      <img src="<?= htmlspecialchars(getFinalImagePathV2($f['Image_Path'])) ?>"
+           style="width:50px;">
+    </td>
+    <td>
+      <?= htmlspecialchars($f['Comic_Title']) ?><br>
+      <small>Issue: <?= htmlspecialchars($f['Issue_Number']) ?></small><br>
+      <?php if (!empty($f['Years'])): ?>
+        <small>Year: <?= htmlspecialchars($f['Years']) ?></small>
+      <?php endif; ?>
+    </td>
+    <td>#<?= $i + 1 ?></td>
+  </tr>
+<?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Hottest -->
+        <div class="tab-pane fade" id="hottest">
+          <div class="table-responsive mb-5">
+            <table class="table table-striped table-bordered">
+              <thead class="table-dark">
+                <tr>
+                  <th style="width:60px;">Image</th>
+                  <th>Comic Title / Issue / Year</th>
+                  <th style="width:80px;">Rank</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($hottest as $i => $h): ?>
+    <tr>
+      <td>
+        <img src="<?= htmlspecialchars(getFinalImagePathV2($h['Image_Path'])) ?>" style="width:50px;">
+      </td>
+      <td>
+        <?= htmlspecialchars($h['Comic_Title']) ?><br>
+        <small>Issue: <?= htmlspecialchars($h['Issue_Number']) ?></small><br>
+        <small>Year: <?= htmlspecialchars($h['Years']) ?></small>
+      </td>
+      <td class="text-start">#<?= $i + 1 ?></td>
+    </tr>
+  <?php endforeach; ?>
+
+
+
+
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
-    
-  </div> <!-- end row -->
+
+  </div>
 </div>
 <!-- END: Dashboard Full-Width Layout -->
 
-<!-- SIMPLE "TAB BRIDGE" SCRIPT -->
 <script>
+  // Tab-bridge script
   $(document).on("click", ".btn-tab-bridge", function(e) {
     e.preventDefault();
-    var targetTab = $(this).attr("href");
-    var $parentLink = $('a.nav-link[href="' + targetTab + '"]');
-    if ($parentLink.length) {
-      $parentLink.tab('show');
-    } else {
-      console.warn("Tab link not found for " + targetTab);
-    }
+    var target = $(this).attr("href");
+    $('.nav-tabs button[data-bs-target="'+target+'"]').tab('show');
   });
 </script>

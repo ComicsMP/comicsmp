@@ -1,4 +1,4 @@
-<?php
+ <?php
 session_start();
 require_once 'db_connection.php';
 
@@ -192,10 +192,22 @@ unset($matchArray);
     a { text-decoration: none; color: inherit; }
     
     /* Top Header */
-    .top-header { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; padding: 10px 15px; color: #fff; }
-    .top-header .logo img { height: 40px; }
-    .top-header .icons { display: flex; gap: 15px; }
-    .top-header .icons a { color: #fff; font-size: 16px; }
+    .top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #000;
+    padding: 12px 16px;
+    color: #fff;
+  }
+  .top-header .logo img {
+    height: 38px;
+  }
+  .top-header .icons a {
+    color: #fff;
+    font-size: 20px;
+    margin-left: 12px;
+  }
     
     /* Header Row with Toggle Icons */
     .header-row { display: flex; justify-content: flex-end; align-items: center; background: #007BFF; padding: 10px 15px; color: #fff; }
@@ -242,6 +254,15 @@ unset($matchArray);
       cursor: pointer;
       border: 2px solid #fff;
     }
+     .plus-icon a {
+  color: #fff;
+  text-decoration: none;
+  display: inline-block;
+}
+.plus-icon a:hover {
+  opacity: 0.9;
+}
+
     .filter-controls span { font-size: 14px; }
     .filter-btn {
       background: #007BFF;
@@ -252,6 +273,18 @@ unset($matchArray);
       cursor: pointer;
       font-size: 14px;
     }
+.checkbox-row {
+  display: flex;
+  gap: 20px;
+  margin-top: 4px;
+}
+.checkbox-row label {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
     
     /* Card Container */
     .card-container { display: flex; flex-wrap: wrap; justify-content: center; padding: 10px; }
@@ -269,19 +302,48 @@ unset($matchArray);
 .user-info table td { padding: 2px 4px; vertical-align: top; text-align: left; }
 .user-info table td:first-child { width: 70px; font-weight: bold; }
 .user-info table td:nth-child(2) { width: calc(100% - 70px); word-break: break-word; text-align: left; }
+.user-info td.truncate {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
     
     
     /* Action Buttons */
-    .actions { margin-top: 8px; display: flex; gap: 8px; }
-    .actions button { font-size: 12px; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; }
-    .message-btn { background: #007BFF; color: #fff; }
-    /* Expand button now toggles between "Expand" and "Collapse" */
-    .expand-btn { background: #28A745; color: #fff; }
-    /* Renamed Hide Match to Hide */
-    .hide-match-btn { background: #FF9800; color: #fff; }
-    /* New Delete button style */
-    .delete-match-btn { background: #D32F2F; color: #fff; }
+  .actions button {
+  font-size: 12px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: all 0.2s ease-in-out;
+  font-weight: 500;
+}
+
+.actions .message-btn {
+  background: #007BFF;
+  color: #fff;
+}
+.actions .expand-btn {
+  background: #355c7d;
+  color: #fff;
+}
+.actions .hide-match-btn {
+  background: #ffb347;
+  color: #fff;
+}
+.actions .delete-match-btn {
+  background: #f67280;
+  color: #fff;
+}
+
+.actions button:hover {
+  filter: brightness(1.1);
+}
+
     
     /* Expandable Content for Card View */
     .expandable-content { display: none; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px; }
@@ -305,11 +367,42 @@ unset($matchArray);
     .sub-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
     
     /* Bottom Navigation */
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #575757; box-shadow: 0 -2px 4px rgba(0,0,0,0.3); display: flex; justify-content: space-around; padding: 10px 0; font-size: 12px; }
-    .bottom-nav a { color: #fff; text-align: center; flex: 1; padding: 6px 0; transition: background 0.3s, transform 0.3s; }
-    .bottom-nav a:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
-    .bottom-nav a.active { background: rgba(255,255,255,0.3); border-radius: 8px; }
-    
+      .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #000;
+    display: flex;
+    justify-content: space-around;
+    padding: 6px 0;       /* reduced vertical padding */
+    font-size: 12px;      /* smaller label text */
+    color: #fff;
+  }
+.list-view td.truncate-name {
+  max-width: 120px;      /* Adjust as needed */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bottom-nav a:active {
+  background: rgba(255,255,255,0.1);
+}
+
+
+ 
+.bottom-nav a {
+    flex: 1;
+    text-align: center;
+    padding: 4px 0;       /* you can tweak this too */
+    color: #fff;
+  }
+  .bottom-nav a i {
+    display: block;
+    font-size: 18px;      /* smaller icon */
+    margin-bottom: 0;     /* remove extra gap */
+  }
     /* Modal Overlay for Cover Details (Swiper) */
     .cover-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 10000; align-items: center; justify-content: center; padding: 20px; }
     .cover-modal .modal-box { background: #fff; padding: 15px; border-radius: 8px; width: 90%; max-width: 400px; position: relative; text-align: center; }
@@ -339,38 +432,69 @@ unset($matchArray);
     }
     
     /* New Filter Popup - Updated styling for a cleaner, mobile-friendly look */
-    #filterPopup .modal-box {
-      padding: 25px;
-    }
-    #filterPopup h3 {
-      font-size: 22px;
-      margin-bottom: 15px;
-    }
-    #filterPopup label {
-      font-size: 18px;
-      display: block;
-      margin-bottom: 8px;
-    }
-    /* Place the two checkboxes on the same line */
-    #filterPopup .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-    #filterPopup .checkbox-group label {
-      margin: 0;
-      font-size: 18px;
-    }
-    #filterPopup select, 
-    #filterPopup input[type="checkbox"],
-    #filterPopup input[type="radio"] {
-      transform: scale(1.2);
-    }
-    #filterPopup button#applyFilterPopup {
-      font-size: 18px;
-      padding: 10px;
-    }
+   #filterPopup .modal-box {
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+#filterPopup h3 {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+#popupSortSelect {
+  width: 100%;
+  padding: 8px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-bottom: 15px;
+}
+
+#filterPopup .filter-section {
+  margin-bottom: 18px;
+}
+
+#filterPopup .filter-section label {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#filterPopup button#applyFilterPopup {
+  font-size: 16px;
+  padding: 10px;
+  margin-top: 20px;
+  width: 100%;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+#filterPopup .close-modal {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #888;
+  background: white;
+  color: #000;
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: bold;
+  text-align: center;
+}
+
   </style>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
@@ -381,49 +505,80 @@ unset($matchArray);
     }
     
     // Global filter options (default values)
-    var sortOption = "newest"; // "newest", "closest", or "most"
-    var filterIncludeActive = true;
-    var filterIncludeHidden = false;
-    
-    // On page load, load filter status from localStorage
-    function loadFilterStatus() {
-      var savedStatus = localStorage.getItem('filterStatus');
-      if (savedStatus === null) {
-          savedStatus = "active";
-          localStorage.setItem('filterStatus', savedStatus);
-      }
-      if (savedStatus === "active") {
-          filterIncludeActive = true;
-          filterIncludeHidden = false;
-          $("#filterActiveCheckbox").prop("checked", true);
-          $("#filterHiddenCheckbox").prop("checked", false);
-      } else if (savedStatus === "hidden") {
-          filterIncludeActive = false;
-          filterIncludeHidden = true;
-          $("#filterActiveCheckbox").prop("checked", false);
-          $("#filterHiddenCheckbox").prop("checked", true);
-      } else if (savedStatus === "both") {
-          filterIncludeActive = true;
-          filterIncludeHidden = true;
-          $("#filterActiveCheckbox").prop("checked", true);
-          $("#filterHiddenCheckbox").prop("checked", true);
-      }
-    }
-    
-    // Save current filter status to localStorage
-    function saveFilterStatus() {
-      var status;
-      if(filterIncludeActive && filterIncludeHidden){
-        status = "both";
-      } else if(filterIncludeActive){
-        status = "active";
-      } else if(filterIncludeHidden){
-        status = "hidden";
-      } else {
-        status = "active";
-      }
-      localStorage.setItem('filterStatus', status);
-    }
+var sortOption = "newest"; // default fallback
+const savedSort = localStorage.getItem("sortOption");
+if (savedSort) {
+  sortOption = savedSort;
+}
+var filterIncludeActive = true;
+var filterIncludeHidden = false;
+var filterIncludeBuy = true;
+var filterIncludeSell = true;
+
+// On page load, load filter status from localStorage
+function loadFilterStatus() {
+  var savedStatus = localStorage.getItem('filterStatus');
+  if (savedStatus === null) {
+    savedStatus = "active";
+    localStorage.setItem('filterStatus', savedStatus);
+  }
+
+  if (savedStatus === "active") {
+    filterIncludeActive = true;
+    filterIncludeHidden = false;
+    $("#filterActiveCheckbox").prop("checked", true);
+    $("#filterHiddenCheckbox").prop("checked", false);
+  } else if (savedStatus === "hidden") {
+    filterIncludeActive = false;
+    filterIncludeHidden = true;
+    $("#filterActiveCheckbox").prop("checked", false);
+    $("#filterHiddenCheckbox").prop("checked", true);
+  } else if (savedStatus === "both") {
+    filterIncludeActive = true;
+    filterIncludeHidden = true;
+    $("#filterActiveCheckbox").prop("checked", true);
+    $("#filterHiddenCheckbox").prop("checked", true);
+  }
+
+  // Restore Buy/Sell checkbox state
+  filterIncludeBuy = localStorage.getItem('filterIncludeBuy') !== 'false';
+  filterIncludeSell = localStorage.getItem('filterIncludeSell') !== 'false';
+  $("#filterBuyCheckbox").prop("checked", filterIncludeBuy);
+  $("#filterSellCheckbox").prop("checked", filterIncludeSell);
+
+  // Restore Sort Option
+  sortOption = localStorage.getItem("sortOption") || "newest";
+  $('#popupSortSelect').val(sortOption);
+
+  // Apply remembered sort to card view
+  sortCards();
+}
+
+// Save current filter status to localStorage
+function saveFilterStatus() {
+  var status;
+  if (filterIncludeActive && filterIncludeHidden) {
+    status = "both";
+  } else if (filterIncludeActive) {
+    status = "active";
+  } else if (filterIncludeHidden) {
+    status = "hidden";
+  } else {
+    status = "active";
+  }
+
+  localStorage.setItem('filterStatus', status);
+  localStorage.setItem('filterIncludeBuy', filterIncludeBuy);
+  localStorage.setItem('filterIncludeSell', filterIncludeSell);
+  localStorage.setItem('sortOption', sortOption);
+}
+
+// Apply saved sort option on DOM ready
+$(document).ready(function() {
+  $('#popupSortSelect').val(sortOption);
+});
+
+
     
     // Function to sort the cards in the card view based on sortOption.
     function sortCards() {
@@ -445,55 +600,76 @@ unset($matchArray);
     
     // Function to apply distance and status filter based on new options.
     function applyDistanceFilter(){
-      var maxDistance = parseInt($('#distanceSlider').val());
-      $('.card').each(function(){
-        var cardDistance = parseInt($(this).attr('data-distance')) || 0;
-        var isHidden = $(this).attr('data-hidden') === "true";
-        if (((!isHidden && filterIncludeActive) || (isHidden && filterIncludeHidden)) && cardDistance <= maxDistance) {
-          $(this).show();
-        } else {
-          $(this).hide();
-        }
-      });
-      $('.list-view tr.match-row').each(function(){
-        var rowDistance = parseInt($(this).attr('data-distance')) || 0;
-        var isHidden = $(this).attr('data-hidden') === "true";
-        if (((!isHidden && filterIncludeActive) || (isHidden && filterIncludeHidden)) && rowDistance <= maxDistance) {
-          $(this).show();
-        } else {
-          $(this).hide();
-        }
-      });
-      
-      // After filtering, sort the cards.
-      sortCards();
+  var maxDistance = parseInt($('#distanceSlider').val());
+
+  $('.card').each(function(){
+    var cardDistance = parseInt($(this).attr('data-distance')) || 0;
+    var isHidden = $(this).attr('data-hidden') === "true";
+    var isBuy = $(this).data('buy-count') > 0;
+    var isSell = $(this).data('sell-count') > 0;
+
+    if (
+      (((!isHidden && filterIncludeActive) || (isHidden && filterIncludeHidden)) &&
+       cardDistance <= maxDistance) &&
+      ((isBuy && filterIncludeBuy) || (isSell && filterIncludeSell))
+    ) {
+      $(this).show();
+    } else {
+      $(this).hide();
     }
-    
-    $(document).ready(function(){
-      // Load filter status from localStorage and update controls accordingly.
-      loadFilterStatus();
-      
-      // On page load, restore the distance setting from localStorage (default 500 if not set)
-      const slider = document.getElementById('distanceSlider');
-const unit = slider?.dataset.unit || 'mi';
-let radiusVal = localStorage.getItem('maxDistance') || slider?.value || 500;
-$('#distanceSlider').val(radiusVal);
-$('#distanceValue').text(radiusVal + " " + unit);
+  });
 
+  $('.list-view tr.match-row').each(function(){
+    var rowDistance = parseInt($(this).attr('data-distance')) || 0;
+    var isHidden = $(this).attr('data-hidden') === "true";
+    var isBuy = $(this).data('buy-count') > 0;
+    var isSell = $(this).data('sell-count') > 0;
 
-// Update localStorage only if nothing stored
-if (!localStorage.getItem('maxDistance')) {
-    localStorage.setItem('maxDistance', radiusVal);
-} else {
-    radiusVal = localStorage.getItem('maxDistance');
-    $('#distanceSlider').val(radiusVal);
+    if (
+      (((!isHidden && filterIncludeActive) || (isHidden && filterIncludeHidden)) &&
+       rowDistance <= maxDistance) &&
+      ((isBuy && filterIncludeBuy) || (isSell && filterIncludeSell))
+    ) {
+      $(this).show();
+    } else {
+      $(this).hide();
+    }
+  });
+
+  sortCards();
 }
 
-$('#distanceValue').text(radiusVal + " " + unit);
+    
+   $(document).ready(function() {
+  const slider = $('#distanceSlider');
+  const unit = slider.data('unit') || 'mi';
+  let radiusVal = localStorage.getItem('maxDistance');
+const phpRadius = <?= json_encode((int)$defaultRadius) ?>;
 
-      
-      // Use saved filter options (do not force active by default now).
-      applyDistanceFilter();
+// If not set or different from DB default, overwrite localStorage
+if (!radiusVal || parseInt(radiusVal) !== phpRadius) {
+  radiusVal = phpRadius;
+  localStorage.setItem('maxDistance', radiusVal);
+}
+
+
+  slider.val(radiusVal);
+  $('#distanceValue').text(radiusVal + " " + unit);
+
+  slider.on('input change', function() {
+    const val = $(this).val();
+    $('#distanceValue').text(val + " " + unit);
+    localStorage.setItem('maxDistance', val);
+    applyDistanceFilter();
+  });
+
+  applyDistanceFilter(); // initial load filter
+});
+
+
+$(document).ready(function(){
+  loadFilterStatus(); // ✅ This is what was missing
+
       
       // Toggle view between card and list.
       $('#cardView').show();
@@ -544,6 +720,9 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
           // Get checkboxes for Active and Hidden.
           filterIncludeActive = $('#filterActiveCheckbox').is(':checked');
           filterIncludeHidden = $('#filterHiddenCheckbox').is(':checked');
+  filterIncludeBuy = $('#filterBuyCheckbox').is(':checked');
+  filterIncludeSell = $('#filterSellCheckbox').is(':checked');
+
           // Save the filter status.
           saveFilterStatus();
           // Close the popup.
@@ -572,7 +751,9 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
                 success: function(resp){
                   let html = '';
                   // Buy Section.
-                  html += '<div class="match-section"><h4>Buy From ' + card.find('.user-info p:first').text() + '</h4>';
+                  let memberName = card.find('.user-info td.truncate').first().attr('title');
+html += '<div class="match-section"><h4>Buy From ' + memberName + '</h4>';
+
                   if (resp.buy && resp.buy.length > 0) {
                     html += '<div class="cover-grid">';
                     $.each(resp.buy, function(i, cover){
@@ -593,7 +774,8 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
                   }
                   html += '</div>';
                   // Sell Section.
-                  html += '<div class="match-section"><h4>Sell To ' + card.find('.user-info p:first').text() + '</h4>';
+                  html += '<div class="match-section"><h4>Sell To ' + memberName + '</h4>';
+
                   if (resp.sell && resp.sell.length > 0) {
                     html += '<div class="cover-grid">';
                     $.each(resp.sell, function(i, cover){
@@ -842,22 +1024,16 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
   </script>
 </head>
 <body>
-  <!-- Top Header -->
-  <div class="top-header">
-    <div class="logo">
-      <img src="../logo.png" alt="Logo">
-    </div>
-    <div class="icons">
-      <a href="inbox.php">Inbox</a>
-      <a href="settings.php">Profile</a>
-    </div>
-  </div>
+  
   
   <!-- Header Row with Toggle Icons -->
   <div class="header-row">
     <div class="plus-icon">
-      <i class="bi bi-plus-circle"></i>
-    </div>
+  <a href="list_comics.php">
+    <i class="bi bi-plus-circle"></i>
+  </a>
+</div>
+
     <div class="view-toggle">
       <a href="javascript:void(0);" id="gridIcon" data-view="card" class="active">
         <i class="bi bi-grid-3x3-gap-fill"></i>
@@ -888,36 +1064,58 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
     </div>
   </div>
   
-  <!-- New Filter Popup -->
-  <div id="filterPopup" class="cover-modal" style="display:none;">
-    <div class="modal-box" style="max-width:450px;">
-      <button class="close-modal">&times;</button>
-      <h3 style="margin-bottom:15px;">Filter Options</h3>
-      <div style="margin-bottom:15px;">
-        <label for="popupSortSelect" style="font-size:16px; display:block; margin-bottom:8px;">Sort By:</label>
-        <select id="popupSortSelect" style="width:100%; padding:6px; font-size:16px;">
-          <option value="newest">Newest Matches</option>
-          <option value="closest">Closest Matches</option>
-          <option value="most">Most Matches</option>
-        </select>
-      </div>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:16px; display:block; margin-bottom:8px;">Include Matches:</label>
-        <div class="checkbox-group">
-          <div>
-            <input type="checkbox" id="filterActiveCheckbox" style="transform:scale(1.2); margin-right:5px;">
-            <label for="filterActiveCheckbox" style="font-size:16px;">Active</label>
-          </div>
-          <div>
-            <input type="checkbox" id="filterHiddenCheckbox" style="transform:scale(1.2); margin-right:5px;">
-            <label for="filterHiddenCheckbox" style="font-size:16px;">Hidden</label>
-          </div>
-         
-        </div>
-      </div>
-      <button id="applyFilterPopup" style="background:#28A745; color:#fff; border:none; border-radius:4px; padding:10px; width:100%; font-size:18px; cursor:pointer;">Apply</button>
+  <!-- Filter Popup -->
+<div id="filterPopup" class="cover-modal" style="display:none;">
+  <div class="modal-box" style="max-width:450px;">
+    <button class="close-modal">&times;</button>
+    <h3 style="margin-bottom:15px;">Filter Options</h3>
+
+    <!-- Sort By -->
+    <div class="filter-section" style="margin-bottom:20px;">
+      <label for="popupSortSelect" style="font-size:16px; display:block; margin-bottom:8px;">Sort By:</label>
+      <select id="popupSortSelect" style="width:100%; padding:6px; font-size:16px;">
+        <option value="newest">Newest Matches</option>
+        <option value="closest">Closest Matches</option>
+        <option value="most">Most Matches</option>
+      </select>
     </div>
+
+    <!-- Include Matches -->
+    <div class="filter-section" style="margin-bottom:20px;">
+      <label style="font-size:16px; display:block; margin-bottom:8px;">Include Matches:</label>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <label style="font-size:16px;">
+          <input type="checkbox" id="filterActiveCheckbox" style="transform:scale(1.2); margin-right:8px;">
+          Active
+        </label>
+        <label style="font-size:16px;">
+          <input type="checkbox" id="filterHiddenCheckbox" style="transform:scale(1.2); margin-right:8px;">
+          Hidden
+        </label>
+      </div>
+    </div>
+
+    <!-- Match Types -->
+    <div class="filter-section" style="margin-bottom:20px;">
+      <label style="font-size:16px; display:block; margin-bottom:8px;">Match Types:</label>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <label style="font-size:16px;">
+          <input type="checkbox" id="filterBuyCheckbox" style="transform:scale(1.2); margin-right:8px;" checked>
+          Buy
+        </label>
+        <label style="font-size:16px;">
+          <input type="checkbox" id="filterSellCheckbox" style="transform:scale(1.2); margin-right:8px;" checked>
+          Sell
+        </label>
+      </div>
+    </div>
+
+    <button id="applyFilterPopup" style="background:#28A745; color:#fff; border:none; border-radius:4px; padding:10px; width:100%; font-size:18px; cursor:pointer;">Apply</button>
   </div>
+</div>
+
+
+
   
   <!-- Card/Grid View Section -->
   <div id="cardView" class="card-container">
@@ -977,11 +1175,15 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
             $isHidden = in_array((int)$otherUserId, array_map('intval', $hiddenMatches));
       ?>
         <div class="card" 
-             data-other-user-id="<?php echo $otherUserId; ?>" 
-             data-distance="<?php echo $distanceStr !== "" ? explode(" ", $distanceStr)[0] : 0; ?>" 
-             data-match-time="<?php echo $matchTimestamp; ?>"
-             data-shared-count="<?php echo $count; ?>"
-             data-hidden="<?php echo $isHidden ? 'true' : 'false'; ?>">
+     data-other-user-id="<?php echo $otherUserId; ?>" 
+     data-distance="<?php echo $distanceStr !== "" ? explode(" ", $distanceStr)[0] : 0; ?>" 
+     data-match-time="<?php echo $matchTimestamp; ?>"
+     data-shared-count="<?php echo $count; ?>"
+     data-hidden="<?php echo $isHidden ? 'true' : 'false'; ?>"
+     data-buy-count="<?php echo count($buyMatches); ?>"
+     data-sell-count="<?php echo count($sellMatches); ?>">
+
+
           <div class="card-header">
             <div class="matches-box">
               <div class="matches-title">Matches</div>
@@ -991,63 +1193,79 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
               </div>
             </div>
             <div class="user-info">
-              <table>
-                <tr>
-                  <td><strong>User:</strong></td>
-                  <td><?php echo htmlspecialchars($displayName); ?></td>
-                </tr>
-                <tr>
-                  <td><strong>City:</strong></td>
-                  <td><?php echo htmlspecialchars($userInfo['city']); ?></td>
-                </tr>
-                <tr>
-                  <td><strong>Distance:</strong></td>
-                  <td><?php echo htmlspecialchars($distanceStr); ?></td>
-                </tr>
-                <tr>
-                  <td><strong>Trans:</strong></td>
-<td>
-  <?php
-    $transRaw = strtolower($userInfo['preferred_transaction'] ?? '');
-    $icons = [];
-
-    if (strpos($transRaw, 'shipping') !== false) {
-        $icons[] = '<i class="bi bi-truck" title="Shipping"></i>';
-    }
-    if (strpos($transRaw, 'meetup') !== false) {
-        $icons[] = '<i class="bi bi-people" title="Meetup"></i>';
-    }
-    if (strpos($transRaw, 'pickup') !== false) {
-        $icons[] = '<i class="bi bi-house-door" title="Pickup"></i>'; // ✅ this one shows up reliably
-    }
-
-    echo implode(' ', $icons);
-  ?>
-</td>
-                </tr>
-                <tr>
-  <td><strong>Pay:</strong></td>
+             <table>
+  <tr>
+    <td><strong>Member:</strong></td>
+    <td class="truncate" title="<?php echo htmlspecialchars($displayName); ?>">
+      <?php echo htmlspecialchars($displayName); ?>
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Location:</strong></td>
+    <td class="truncate" title="<?php echo htmlspecialchars($userInfo['city']); ?>">
+      <?php echo htmlspecialchars($userInfo['city']); ?>
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Distance:</strong></td>
+    <td><?php echo htmlspecialchars($distanceStr); ?></td>
+  </tr>
+  <tr>
+  <td><strong>Buy|Sell:</strong></td>
   <td>
-    <?php
-      $payRaw = strtolower($userInfo['preferred_payment'] ?? '');
-      $icons = [];
+    <i class="bi bi-box-arrow-in-down" title="Buy Matches" style="transform: scale(1.12); display: inline-block;"></i> <?php echo count($buyMatches); ?> |
+<i class="bi bi-box-arrow-up-right" title="Sell Matches" style="transform: scale(0.95); display: inline-block;"></i> <?php echo count($sellMatches); ?>
 
-      if (strpos($payRaw, 'cash') !== false) {
-          $icons[] = '<i class="bi bi-cash-coin" title="Cash"></i>';
-      }
-      if (strpos($payRaw, 'e-transfer') !== false || strpos($payRaw, 'etransfer') !== false) {
-          $icons[] = '<i class="bi bi-bank" title="E-Transfer"></i>';
-      }
-      if (strpos($payRaw, 'paypal') !== false) {
-          $icons[] = '<i class="bi bi-p-circle" title="PayPal"></i>';
-      }
-
-      echo implode(' ', $icons);
-    ?>
   </td>
 </tr>
 
-              </table>
+  <tr>
+    <td><strong>Method:</strong></td>
+    <td>
+      <?php
+        $transRaw = strtolower($userInfo['preferred_transaction'] ?? '');
+        $icons = [];
+
+        if (strpos($transRaw, 'shipping') !== false) {
+            $icons[] = '<i class="bi bi-truck" title="Shipping"></i>';
+        }
+        if (strpos($transRaw, 'meetup') !== false) {
+            $icons[] = '<i class="bi bi-people" title="Meetup"></i>';
+        }
+        if (strpos($transRaw, 'pickup') !== false) {
+            $icons[] = '<i class="bi bi-house-door" title="Pickup"></i>';
+        }
+
+        echo implode(' ', $icons);
+      ?>
+    </td>
+  </tr>
+  <tr>
+    <td><strong>Payment:</strong></td>
+    <td>
+      <?php
+        $payRaw = strtolower($userInfo['preferred_payment'] ?? '');
+        $icons = [];
+
+        if (strpos($payRaw, 'cash') !== false) {
+            $icons[] = '<i class="bi bi-cash-coin" title="Cash"></i>';
+        }
+        if (strpos($payRaw, 'e-transfer') !== false || strpos($payRaw, 'etransfer') !== false) {
+            $icons[] = '<i class="bi bi-bank" title="E-Transfer"></i>';
+        }
+        if (strpos($payRaw, 'paypal') !== false) {
+            $icons[] = '<i class="bi bi-p-circle" title="PayPal"></i>';
+        }
+        if (strpos($payRaw, 'trade') !== false) {
+            $icons[] = '<i class="bi bi-arrow-left-right" title="Trade"></i>';
+        }
+
+        echo implode(' ', $icons);
+      ?>
+    </td>
+  </tr>
+</table>
+
             </div>
           </div>
           <div class="actions">
@@ -1083,8 +1301,8 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
       <table>
         <thead>
           <tr>
-            <th>Other Party</th>
-            <th># Matches</th>
+            <th>Member</th>
+            <th>Matches</th>
             <th>Contact</th>
             <th>Expand</th>
           </tr>
@@ -1166,12 +1384,20 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
               $listHidden = in_array($otherUserId, $hiddenMatches) ? 'true' : 'false';
         ?>
           <tr class="match-row" 
-              data-other-user-id="<?php echo $otherUserId; ?>" 
-              data-distance="<?php echo $distanceStr !== "" ? explode(" ", $distanceStr)[0] : 0; ?>" 
-              data-match-time="<?php echo $matchTimestamp; ?>"
-              data-shared-count="<?php echo $cnt; ?>"
-              data-hidden="<?php echo $listHidden; ?>">
-            <td><?php echo htmlspecialchars($uname); ?></td>
+    data-other-user-id="<?php echo $otherUserId; ?>" 
+    data-distance="<?php echo $distanceStr !== "" ? explode(" ", $distanceStr)[0] : 0; ?>" 
+    data-match-time="<?php echo $matchTimestamp; ?>"
+    data-shared-count="<?php echo $cnt; ?>"
+    data-hidden="<?php echo $listHidden; ?>"
+    data-buy-count="<?php echo count($buyMatches); ?>"
+    data-sell-count="<?php echo count($sellMatches); ?>">
+
+
+            <td style="max-width: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo htmlspecialchars($uname); ?>">
+  <?php echo htmlspecialchars($uname); ?>
+</td>
+
+
             <td><?php echo $cnt; ?></td>
             <td>
               <a href="<?php echo $messageUrl; ?>"
@@ -1247,11 +1473,23 @@ applyDistanceFilter();  // ensures that filter applies based on default on first
   
   <!-- Bottom Navigation Bar -->
   <div class="bottom-nav">
-    <a href="dashboard.php">Home</a>
-    <a href="wanted.php">Wanted</a>
-    <a href="selling.php">For Sale</a>
-    <a class="active" href="matches.php">Matches</a>
-  </div>
+  <a href="dashboard.php">
+    <i class="bi bi-house-fill"></i>
+    Home
+  </a>
+  <a href="wanted.php">
+    <i class="bi bi-heart-fill"></i>
+    Wanted
+  </a>
+  <a href="selling.php">
+    <i class="bi bi-tag-fill"></i>
+    Selling
+  </a>
+  <a href="matches.php">
+    <i class="bi bi-people-fill"></i>
+    Matches
+  </a>
+</div>
   
   <!-- Modal Overlay for Cover Details (Swiper) -->
   <div class="cover-modal" style="display:none;"></div>

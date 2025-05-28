@@ -50,7 +50,35 @@
     height: 6px;
     border-radius: 3px;
   }
-  #distanceSlider::-moz-range-thumb {
+  .position-relative { position: relative; }
+  .position-absolute { position: absolute; }
+  #loading {
+  display: none;
+  font-size: 20px;
+  font-weight: bold;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.85);
+  padding: 40px;
+  text-align: center;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 9998;
+}
+#loading span {
+  display: inline-block;
+  font-size: 24px;
+  animation: pulse 1.5s infinite;
+}
+#loading span:nth-child(2) { animation-delay: 0.2s; }
+#loading span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.2); }
+}
+
+#distanceSlider::-moz-range-thumb {
     width: 16px;
     height: 16px;
     border-radius: 50%;
@@ -83,6 +111,38 @@
   justify-content: space-between;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.custom-lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1055;
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  color: red;
+  font-size: 24px;
+  font-weight: bold;
+  border: none;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 40px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.stat-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.card-body .stat-text {
+  font-size: clamp(0.7rem, 0.9vw, 0.85rem); /* scales down slightly if needed */
 }
 
 .extra-favorite {
@@ -131,6 +191,11 @@ input[type=range]::-webkit-slider-thumb{
   cursor:pointer;
   border:2px solid #fff;
 }
+
+#upcResultModal .modal-dialog {
+  max-width: 400px;
+}
+
 
 @media (max-width: 768px) {
   .distance-slider {

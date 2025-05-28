@@ -94,6 +94,32 @@ $(document).on('click', '#expandFavoritesBtn', function (e) {
     }
   });
 
+function initMatchesFiltering() {
+  const buyCheckbox = document.getElementById('buyCheckbox');
+  const sellCheckbox = document.getElementById('sellCheckbox');
+
+  if (!buyCheckbox || !sellCheckbox) return;
+
+  function filterTestRows() {
+    const showBuy = buyCheckbox.checked;
+    const showSell = sellCheckbox.checked;
+
+    document.querySelectorAll('.main-row').forEach(row => {
+      const type = row.getAttribute('data-type');
+      let show = false;
+
+      if (type === 'buy' && showBuy) show = true;
+      else if (type === 'sell' && showSell) show = true;
+      else if (type === 'buy_sell' && (showBuy || showSell)) show = true;
+
+      row.style.display = show ? '' : 'none';
+    });
+  }
+
+  buyCheckbox.addEventListener('change', filterTestRows);
+  sellCheckbox.addEventListener('change', filterTestRows);
+  filterTestRows(); // run once on load
+}
 
 
     // ————————
@@ -802,6 +828,20 @@ $(document).on("click", ".match-cover-img", function(e) {
     var sendModal = new bootstrap.Modal(document.getElementById("sendMessageModal"));
     sendModal.show();
   });
+
+function initDynamicContent() {
+  // Bind Buy/Sell checkbox change
+  $('#buyCheckbox, #sellCheckbox').off('change').on('change', function () {
+    filterMatches();
+  });
+
+  // If you have distance or hidden filters, bind them here too...
+  // Example: $('#distanceSlider').on('input', ...)
+
+  // Run filter once on load
+  filterMatches();
+}
+
 
   function updateMessagePreview() {
     var forSaleText = "";
